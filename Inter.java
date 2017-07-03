@@ -749,14 +749,19 @@ public class Inter {
                    // LimitedAgeDiscCache（设定文件存活的最长时间，当超过这个值，就删除该文件）
                    // UnlimitedDiscCache（这个缓存类没有任何的限制）
                // 2）内存缓存策略
+			        //综述: 总的接口是MemoryCache,
+					//    LruMemoryCache 直接继承MemoryCache 使用的是强引用
+					//    其余memoryCache 继承BaseMemoryCache, 弱引用和强引用结合，BaseMemoryCache 中有一个hardMap 用于保存强引用
+                    // 		子类再自行保存另外的缓存softMap,当图片的缓存的大小在最大限制以内 就保存在hardMap,否则保存在softMap里面			
                     // 1. 只使用的是强引用缓存
                     //  LruMemoryCache（这个类就是这个开源框架默认的内存缓存类，缓存的是bitmap的强引用，下面我会从源码上面分析这个类）
                     // 2.使用强引用和弱引用相结合的缓存有
                     // UsingFreqLimitedMemoryCache（如果缓存的图片总量超过限定值，先删除使用频率最小的bitmap）
-                   // LRULimitedMemoryCache（这个也是使用的lru算法，和LruMemoryCache不同的是，他缓存的是bitmap的弱引用）
-                   // FIFOLimitedMemoryCache（先进先出的缓存策略，当超过设定值，先删除最先加入缓存的bitmap）
-                   // LargestLimitedMemoryCache(当超过缓存限定值，先删除最大的bitmap对象)
-                   // LimitedAgeMemoryCache（当 bitmap加入缓存中的时间超过我们设定的值，将其删除）
+                    // LRULimitedMemoryCache（这个也是使用的lru算法，和LruMemoryCache不同的是，他缓存的是bitmap的弱引用）
+					//      实现容器是LinkedHashMap;
+                    // FIFOLimitedMemoryCache（先进先出的缓存策略，当超过设定值，先删除最先加入缓存的bitmap）
+                    // LargestLimitedMemoryCache(当超过缓存限定值，先删除最大的bitmap对象)
+                    // LimitedAgeMemoryCache（当 bitmap加入缓存中的时间超过我们设定的值，将其删除）
                    // 3.只使用弱引用缓存
                     // WeakMemoryCache（这个类缓存bitmap的总大小没有限制，唯一不足的地方就是不稳定，缓存的图片容易被回收掉）
                // 3）核心类ImageLoaderTask, 加载图片 ImageDecodingInfo 存储图片解码信息,ImageConfiguration：各种参数设置;
@@ -861,11 +866,65 @@ public class Inter {
            //   ViewStub noDataViewStub = (ViewStub) view.findViewById(R.id.no_data_viewstub);
            //    noDataView = noDataViewStub.inflate();
 
-         // 61 Surface 黑屏事件
+         // 61 SurfaceView 黑屏事件
 
           // 62 view 滑动冲突的解决 / 滚动冲突的解决
 
          // 63  各种touch Event 事件详解
+		 
+		 // How the Activity handles touch:
+		    
+		    • Activity.dispatchTouchEvent()
+		   
+                 • Always first to be called
+				 
+                 • Sends event to root view attached to Window
+				 
+                 • onTouchEvent()
+				 
+                    • Called if no views consume the event
+                    
+					• Always last to be called
+					
+	     // How the View handles touch:
+		 
+		    • View.dispatchTouchEvent()
+
+			     • Sends event to listener first, if exists
+
+				     • View.OnTouchListener.onTouch()
+					 
+                 • If not consumed, processes the touch itself
+
+				     • View.onTouchEvent()
+					 
+		 // How a ViewGroup handles touch:
+		 
+		     • ViewGroup.dispatchTouchEvent()
+			 
+                 • onInterceptTouchEvent()
+				
+                     • Check if it should supersede children
+					 
+                     • Passes  ACTION_CANCEL to active child
+					 
+                     • Return true once, consumes all subsequent events
+					 
+                 • For each child view, in reverse order they were added
+				 
+                     • If touch is relevant (inside view),  child.dispatchTouchEvent()
+					 
+                     • If not handled by previous, dispatch to next view
+					 
+                 • If no children handle event, listener gets a chance
+
+				      • OnTouchListener.onTouch()
+					  
+                 • If no listener, or not handled
+				 
+                     • onTouchEvent()
+					 
+             • Intercepted events jump over child step
 
          // 64  操作系统
 
