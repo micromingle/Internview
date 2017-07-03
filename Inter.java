@@ -872,6 +872,7 @@ public class Inter {
 
          // 63  各种touch Event 事件详解
 		 
+		 
 		 // How the Activity handles touch:
 		    
 		    • Activity.dispatchTouchEvent()
