@@ -822,10 +822,15 @@ public class Inter {
              // 1) 客户端发送请求 ，服务端产生公钥和私钥，将私钥发送给客户端
              // 2) 客户端随机产生秘钥，用公钥加密 产生的秘钥，发送给服务端
              // 3) 服务端用私钥解密，得出秘钥，用得出的秘钥进行加密信息，进行传输
+			 
+			 
       // 56  view 的支持滑动ScrollView 的实现 ，onInterceptTouchEvent
 
       // 57 onInterceptTouchEvent  只有ViewGroup 的onInterceptTouchEvent 返回false,
         // 子view的onTouchEvent 才能收到事件
+		
+		
+		
       // 58 内存泄露的几种方式
             // 1)监听器没有及时关闭
             // 2)非静态内部类持有外部类的引用  比如asyncTask 写一个静态的内部类
