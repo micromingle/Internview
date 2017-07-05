@@ -935,6 +935,26 @@ public class Inter {
          // 64  操作系统
 
          // 65  类的加载机制
+		 
+		     // 加载器的种类：
+			    1、Bootstrap Loader（启动类加载器）：加载System.getProperty("sun.boot.class.path")所指定的路径或jar。
+                2、Extended Loader（标准扩展类加载器ExtClassLoader）：加载System.getProperty("java.ext.dirs")所指定的路径或jar。在使用Java运行程序时，也可以指定其搜索路径，例如：java -Djava.ext.dirs=d:\projects\testproj\classes HelloWorld
+ 
+                3、AppClass Loader（系统类加载器AppClassLoader）：加载System.getProperty("java.class.path")所指定的路径或jar。在使用Java运行程序时，也可以加上-cp来覆盖原有的Classpath设置，例如： java -cp ./lavasoft/classes HelloWorld
+		    // 特点  
+			    三、类加载器的特点
+ 
+                 1、运行一个程序时，总是由AppClass Loader（系统类加载器）开始加载指定的类。
+                 2、在加载类时，每个类加载器会将加载任务上交给其父，如果其父找不到，再由自己去加载。
+                 3、Bootstrap Loader（启动类加载器）是最顶级的类加载器了，其父加载器为null.
+				 
+				 五、类的加载
+ 
+                 类加载有三种方式：
+                  1、命令行启动应用时候由JVM初始化加载
+                  2、通过Class.forName()方法动态加载
+                  3、通过ClassLoader.loadClass()方法动态加载
+                  4、同一个ClassLoader加载的类文件，只有一个Class实例。但是，如果同一个类文件被不同的ClassLoader载入，则会有两份不同的ClassLoader实例（前提是着   两个类加载器不能用相同的父类加载器）
 
          // 66 热修复技术Tinker Andfix Robust // Instant run 原理
 
@@ -942,9 +962,25 @@ public class Inter {
 
          // 68 udp 校验
 		 
-		 // 69 zygote
-		 
 		 // 70 restful
+		 // 69 zygote Android通过zygote生成其他程序和进程
+		 
+		    //  为什么用zygote
+			    
+				// 1) Linux 下进程的产生 是通过fork函数产生的，是c++函数，应用程序使用java写的，应用直接调肯定不方便，
+  				// 所以包装了一个zygote 给大家使用
+				// 2)zygote启动以后 会向系统注册Socket ， 监听进来的socket 请求用户创建进程
+				// 3)当zygote被杀死后，其他app都会死亡，写时复制引起的（猜想）;
+				
+         //70 Android 沙盒机制
+		 
+		  Android provides layer of protection in that it doesn’t give one app access to the resource of another app. This is known as the ‘sandbox’ where every 
+		  app gets to play in its own sandbox and can’t use another app’s toys! Android does this by giving each app a unique user id (a UID) and by running that 
+		  app as a separate process with that UID. Only processes with the same UIDs can share resources which, as each ID is uniquely assigned, 
+		  means that no other apps have permission.
+          This means that if an app tries to do something it shouldn’t, like read the data from another app, or dial the phone (which is a separate application) 
+		  then Android protects against this because the app doesn’t have the right privileges.
+
 
     //    二  开发遇到的难点回顾
     //
