@@ -976,6 +976,23 @@ public class Inter {
 		  Android provides layer of protection in that it doesn’t give one app access to the resource of another app. This is known as the ‘sandbox’ where every app gets to play in its own sandbox and can’t use another app’s toys! Android does this by giving each app a unique user id (a UID) and by running that app as a separate process with that UID. Only processes with the same UIDs can share resources which, as each ID is uniquely assigned, means that no other apps have permission.
 
          This means that if an app tries to do something it shouldn’t, like read the data from another app, or dial the phone (which is a separate application) then Android protects against this because the app doesn’t have the right privileges.
+		 
+		 
+		  71 AsyncTask 源码分析 //双端队列Dequeue
+		  
+		    // 核心线程数：根据CPU核心数，至少两个，最多四个，最好可以比cpu核心数少1，以免占满cpu
+			// 最大线程数 核心数的2倍加一，存活时间30秒；
+			// 排队策略：LInkedBlockQUeue,最多128个等待线程
+			 // 线程池当前版本串行，串行--》并发---》串行
+			 // 默认线程池 SERIAL_EXECUTOR一个进程只有一个
+			 // Callable 接口返回泛型，mWOkerThread 就是继承Callable;
+			  // FutureTask 真正的工作类，用于包装Callable, 实现Runnable,和Future类，Future 类定义了多个函数
+			  // 一般用于线程是否执行完，cancel,get 执行结果
+			  
+			  72 AbstractQUeuedSnchronizer 内部是链表，现先进先出的队列
+			  
+		72  Semaphores
+			 
 
     //    二  开发遇到的难点回顾
     //
