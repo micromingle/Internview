@@ -962,6 +962,7 @@ public class Inter {
 
          // 68 udp 校验
 		 
+		 // 70 restful
 		 // 69 zygote Android通过zygote生成其他程序和进程
 		 
 		    //  为什么用zygote
@@ -973,10 +974,12 @@ public class Inter {
 				
          //70 Android 沙盒机制
 		 
-		  Android provides layer of protection in that it doesn’t give one app access to the resource of another app. This is known as the ‘sandbox’ where every app gets to play in its own sandbox and can’t use another app’s toys! Android does this by giving each app a unique user id (a UID) and by running that app as a separate process with that UID. Only processes with the same UIDs can share resources which, as each ID is uniquely assigned, means that no other apps have permission.
-
-         This means that if an app tries to do something it shouldn’t, like read the data from another app, or dial the phone (which is a separate application) then Android protects against this because the app doesn’t have the right privileges.
-		 
+		  Android provides layer of protection in that it doesn’t give one app access to the resource of another app. This is known as the ‘sandbox’ where every 
+		  app gets to play in its own sandbox and can’t use another app’s toys! Android does this by giving each app a unique user id (a UID) and by running that 
+		  app as a separate process with that UID. Only processes with the same UIDs can share resources which, as each ID is uniquely assigned, 
+		  means that no other apps have permission.
+          This means that if an app tries to do something it shouldn’t, like read the data from another app, or dial the phone (which is a separate application) 
+		  then Android protects against this because the app doesn’t have the right privileges.
 		 
 		  71 AsyncTask 源码分析 //双端队列Dequeue
 		  
@@ -991,9 +994,8 @@ public class Inter {
 			  
 			  72 AbstractQUeuedSnchronizer 内部是链表，现先进先出的队列
 			  
-		72  Semaphores
+		    73  Semaphores
 			 
-
     //    二  开发遇到的难点回顾
     //
     //        1    超长图的处理
