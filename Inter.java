@@ -876,7 +876,8 @@ public class Inter {
           // 62 view 滑动冲突的解决 / 滚动冲突的解决
 
          // 63  各种touch Event 事件详解
-		 
+		       ViewGroup 包含onInterceptEvent , 每次view触摸后，就会执行onInterceptEvent, 假如返回true的话，说明父视图自己会响应
+			   然后再在onTouchEvent 进行处理事件，并向子视图发送Action_CANCEL 事件。假如返回false,则会把事件传给子视图
 		 
 		 // How the Activity handles touch:
 		    
@@ -942,11 +943,17 @@ public class Inter {
  
                 3、AppClass Loader（系统类加载器AppClassLoader）：加载System.getProperty("java.class.path")所指定的路径或jar。在使用Java运行程序时，也可以加上-cp来覆盖原有的Classpath设置，例如： java -cp ./lavasoft/classes HelloWorld
 		    // 特点  
-			    三、类加载器的特点
- 
-                 1、运行一个程序时，总是由AppClass Loader（系统类加载器）开始加载指定的类。
-                 2、在加载类时，每个类加载器会将加载任务上交给其父，如果其父找不到，再由自己去加载。
-                 3、Bootstrap Loader（启动类加载器）是最顶级的类加载器了，其父加载器为null.
+			    三、双亲委托机制以及原因
+				    双亲委托模型的工作过程是：如果一个类加载器收到了类加载的请求，它首先不会自己去尝试加载这个类，而是把这个请求委托给父类加载器去完成，每一个层次的类加载器都是如此，因此所有的加载请求最终都应该传送到顶层的启动类加载器中，只有当父类加载器反馈自己无法完成这个加载请求（它的搜索范围中没有找到所需要加载的类）时，子加载器才会尝试自己去加载
+					
+					使用双亲委托机制的好处是：能够有效确保一个类的全局唯一性，当程序中出现多个限定名相同的类时，类加载器在执行加载时，始终只会加载其中的某一个类。
+
+                     使用双亲委托模型来组织类加载器之间的关系，有一个显而易见的好处就是Java类随着它的类加载器一起具备了一种带有优先级的层次关系。例如类java.lang.Object，它存放在rt.jar之中，无论哪一个类加载器要加载这个类，最终都是委托给处于模型最顶端的启动类加载器进行加载，因此Object类在程序的各种加载器环境中都是同一个类。相反，如果没有使用双亲委托模型，由各个类加载器自行去加载的话，如果用户自己编写了一个称为java.lang.Object的类，并放在程序的ClassPath中，那系统中将会出现多个不同的Object类，Java类型体系中最基础的行为也就无法保证，应用程序也将会变得一片混乱。
+					 双亲机制是为了保证java核心库的类型安全，不会出现用户自己能定义java.lang.Object类的情况。
+					
+					
+					
+				   
 				 
 				 五、类的加载
  
@@ -955,6 +962,44 @@ public class Inter {
                   2、通过Class.forName()方法动态加载
                   3、通过ClassLoader.loadClass()方法动态加载
                   4、同一个ClassLoader加载的类文件，只有一个Class实例。但是，如果同一个类文件被不同的ClassLoader载入，则会有两份不同的ClassLoader实例（前提是着   两个类加载器不能用相同的父类加载器）
+				  
+				   5 自定义加载器要重写findclass
+				  
+				  六， 类的初始化顺序
+				  
+				    属性、方法、构造方法和自由块都是类中的成员，在创建类的对象时，类中各成员的执行顺序：
+                      1.父类静态成员和静态初始化快，按在代码中出现的顺序依次执行。
+                      2.子类静态成员和静态初始化块，按在代码中出现的顺序依次执行。
+                      3. 父类的实例成员和实例初始化块，按在代码中出现的顺序依次执行。
+                      4.执行父类的构造方法。
+                      5.子类实例成员和实例初始化块，按在代码中出现的顺序依次执行。
+                      6.执行子类的构造方法。
+					   
+	                   class SingleTon {
+	                         private static SingleTon singleTon = new SingleTon();
+	                         public static int count1;
+	                         public static int count2 = 0;
+       
+	                         private SingleTon() {
+	                             	count1++;
+	                             	count2++;
+	                         }
+
+	                         public static SingleTon getInstance() {
+		                            return singleTon;
+	                         }
+
+                             public static void main(String[] args) {
+		                           SingleTon singleTon = SingleTon.getInstance();
+	                                System.out.println("count1=" + singleTon.count1);
+		                           System.out.println("count2=" + singleTon.count2);
+	                          }
+                         }
+                   
+				         输出结果：
+						 
+					      count1=1
+                          count2=0
 
          // 66 热修复技术Tinker Andfix Robust // Instant run 原理
 
@@ -995,6 +1040,27 @@ public class Inter {
 			  72 AbstractQUeuedSnchronizer 内部是链表，现先进先出的队列
 			  
 		    73  Semaphores
+			
+			 74  视图的缩放和拖动
+			 
+			 75  多线程部分
+			 
+			     6.1 synchronized和volatile理解
+                 6.2 Unsafe类的原理，使用它来实现CAS。因此诞生了AtomicInteger系列等
+                 6.3 CAS可能产生的ABA问题的解决，如加入修改次数、版本号
+                 6.4 同步器AQS的实现原理
+                 6.5 独占锁、共享锁；可重入的独占锁ReentrantLock、共享锁 实现原理
+                 6.6 公平锁和非公平锁
+                 6.7 读写锁 ReentrantReadWriteLock的实现原理
+                 6.8 LockSupport工具
+                 6.9 Condition接口及其实现原理
+                 6.10 HashMap、HashSet、ArrayList、LinkedList、HashTable、ConcurrentHashMap、TreeMap的实现原理
+                 6.11 HashMap的并发问题
+                 6.12 ConcurrentLinkedQueue的实现原理
+                 6.13 Fork/Join框架
+                 6.14 CountDownLatch和CyclicBarrier
+				 
+			   76  JVM
 			 
     //    二  开发遇到的难点回顾
     //
