@@ -1005,7 +1005,7 @@ public class Inter {
 
          // 67 大端 小端
 
-         // 68 udp 校验
+         // 68 tcp校验
 		 
 		 // 70 restful
 		 // 69 zygote Android通过zygote生成其他程序和进程
@@ -1061,6 +1061,54 @@ public class Inter {
                  6.14 CountDownLatch和CyclicBarrier
 				 
 			   76  JVM
+			   
+			       JVM 的组成由类加载器把字节码文件加进虚拟机
+				   虚拟机包括，方法区，java 栈， 本地方法栈，堆，和指令计数器
+				   
+				   其中 java 栈，指令计数器和本地方法栈是线程私有的
+				   
+				   堆区和方法区是线程间共享
+				   
+				   1)程序计数器(Program Counter Register)
+
+　　                   程序计数器是用于存储每个线程下一步将执行的JVM指令，如该方法为native的，则程序计数器中不存储任何信息
+
+                    2)JVM栈(JVM Stack)
+                       JVM栈是线程私有的，每个线程创建的同时都会创建JVM栈，JVM栈中存放的为当前线程中局部基本类型的变量（java
+					   中定义的八种基本类型：boolean、char、byte、short、int、long、float、double）、部分的返回结果以及Stack Frame，非基本类型的对象在JVM栈上仅存放一个指向堆上的地址
+
+                    3)堆(heap)
+ 
+　                   　它是JVM用来存储对象实例以及数组值的区域，可以认为Java中所有通过new创建的对象的内存都在此分配，Heap中的对象的内存需要等待GC进行回收。
+
+　　                   1）堆是JVM中所有线程共享的，因此在其上进行对象内存的分配均需要进行加锁，这也导致了new对象的开销是比较大的
+
+　　                    2）Sun Hotspot JVM为了提升对象内存分配的效率，对于所创建的线程都会分配一块独立的空间TLAB
+                           （Thread Local Allocatio Buffer），其大小由JVM根据运行的情况计算而得，在TLAB上分配对象时不需要加锁，
+						   因此JVM在给线程的对象分配内存时会尽量的在TLAB上分配，在这种情况下JVM中分配对象内存的性能和C基本是
+						   一样高效的，但如果对象过大的话则仍然是直接使用堆空间分配
+
+　　                   3）TLAB仅作用于新生代的Eden Space，因此在编写Java程序时，通常多个小的对象比大的对象分配起来更加高效。
+
+                       4)方法区（Method Area）
+
+　　                      （1）在Sun JDK中这块区域对应的为PermanetGeneration，又称为持久代。
+
+                          　2）方法区域存放了所加载的类的信息（名称、修饰符等）、类中的静态变量、类中定义为final类型的常量、
+						    类中的Field信息、类中的方法信息，当开发人员在程序中通过Class对象中的getName、isInterface等方法来获取信息时，
+							这些数据都来源于方法区域，同时方法区域也是全局共享的，在一定的条件下它也会被GC，当方法区域需要使用的内存
+							超过其允许的大小时，会抛出OutOfMemory的错误信息。
+
+                        5)本地方法栈（Native Method Stacks）
+
+　                      　JVM采用本地方法栈来支持native方法的执行，此区域用于存储每个native方法调用的状态。
+
+                        6)运行时常量池（Runtime ConstantPool）
+						   存放的为类中的固定的常量信息、方法和Field的引用信息等，其空间从方法区域中分配。JVM在加载类时会为
+						   每个class分配一个独立的常量池，但是运行时常量池中的字符串常量池是全局共享的。
+				 
+				 77  NIO优点和原理
+				
 			 
     //    二  开发遇到的难点回顾
     //
