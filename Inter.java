@@ -436,6 +436,40 @@ public class Inter {
                      ThreadPoolExecutor.CallerRunsPolicy：由调用线程处理该任务
 
             39   生产者，消费者模式
+			
+                  * class Producer implements Runnable {
+                  *   private final BlockingQueue queue;
+                  *   Producer(BlockingQueue q) { queue = q; }
+                  *   public void run() {
+                  *     try {
+                  *       while (true) { queue.put(produce()); }
+                  *     } catch (InterruptedException ex) { ... handle ...}
+                  *   }
+                  *   Object produce() { ... }
+                  * }
+                  *
+                  * class Consumer implements Runnable {
+                  *   private final BlockingQueue queue;
+                  *   Consumer(BlockingQueue q) { queue = q; }
+                  *   public void run() {
+                  *     try {
+                  *       while (true) { consume(queue.take()); }
+                  *     } catch (InterruptedException ex) { ... handle ...}
+                  *   }
+                  *   void consume(Object x) { ... }
+                  * }
+                  *
+                  * class Setup {
+                  *   void main() {
+                  *     BlockingQueue q = new SomeQueueImplementation();
+                  *     Producer p = new Producer(q);
+                  *     Consumer c1 = new Consumer(q);
+                  *     Consumer c2 = new Consumer(q);
+                  *     new Thread(p).start();
+                  *     new Thread(c1).start();
+                  *     new Thread(c2).start();
+                  *   }
+                  * }
 
             40   CountDownLatch,  CycleBarrier;
 
@@ -1083,20 +1117,365 @@ public class Inter {
 						     从而保证临界区中的所有语句都全部执行。多个线程争抢synchronized锁对象时，会出现阻塞。
 						   
                  6.2 Unsafe类的原理，使用它来实现CAS。因此诞生了AtomicInteger系列等
-                 6.3 CAS可能产生的ABA问题的解决，如加入修改次数、版本号
-                 6.4 同步器AQS的实现原理
-                 6.5 独占锁、共享锁；可重入的独占锁ReentrantLock、共享锁 实现原理
-                 6.6 公平锁和非公平锁
-                 6.7 读写锁 ReentrantReadWriteLock的实现原理
-                 6.8 LockSupport工具
-                 6.9 Condition接口及其实现原理
-                 6.10 HashMap、HashSet、ArrayList、LinkedList、HashTable、ConcurrentHashMap、TreeMap的实现原理
-                 6.11 HashMap的并发问题
-                 6.12 ConcurrentLinkedQueue的实现原理
-                 6.13 Fork/Join框架
-                 6.14 CountDownLatch和CyclicBarrier
-				 6.15 synchronized 和 lock
 				 
+				      
+                 6.3 CAS可能产生的ABA问题的解决，如加入修改次数、版本号
+				 
+				      CAS虽然很高效的解决原子操作，但是CAS仍然存在三大问题。ABA问题，循环时间长开销大和只能保证一个
+					  共享变量的原子操作
+ 
+                      1.ABA问题。因为CAS需要在操作值的时候检查下值有没有发生变化，如果没有发生变化则更新，
+					     但是如果一个值原来是A，变成了B，又变成了A，那么使用CAS进行检查时会发现它的值没有发生变化，
+					     但是实际上却变化了。ABA问题的解决思路就是使用版本号。在变量前面追加上版本号，每次变量更新的时候
+                         把版本号加一，那么A－B－A 就会变成1A-2B－3A。
+                         从Java1.5开始JDK的atomic包里提供了一个类AtomicStampedReference来解决ABA问题。这个类的compareAndSet
+					     方法作用是首先检查当前引用是否等于预期引用，并且当前标志是否等于预期标志，如果全部相等，
+					     则以原子方式将该引用和该标志的值设置为给定的更新值。
+                         关于ABA问题参考文档: http://blog.hesey.NET/2011/09/resolve-aba-by-atomicstampedreference.html 
+
+                       2. 循环时间长开销大。自旋CAS如果长时间不成功，会给CPU带来非常大的执行开销。如果JVM能支持
+                          处理器提供的pause指令那么效率会有一定的提升，pause指令有两个作用，第一它可以延迟流水线执行指令（de-pipeline）,使CPU不会消耗过多的执行资源，延迟的时间取决于具体实现的版本，在一些处理器上延迟时间是零。
+                          第二它可以避免在退出循环的时候因内存顺序冲突（memory order violation）
+                          而引起CPU流水线被清空（CPU pipeline flush），从而提高CPU的执行效率。
+ 
+                        3. 只能保证一个共享变量的原子操作。当对一个共享变量执行操作时，我们可以使用
+	                       循环CAS的方式来保证原子操作，但是对多个共享变量操作时，循环CAS就无法保证操作的原子性，
+						   这个时候就可以用锁，或者有一个取巧的办法，就是把多个共享变量合并成一个共享变量来操作。
+						   比如有两个共享变量i＝2,j=a，合并一下ij=2a，然后用CAS来操作ij。从Java1.5开始JDK提供了
+						   AtomicReference类来保证引用对象之间的原子性，你可以把多个变量放在一个对象里来进行CAS操作。
+				     
+                 6.4 同步器AQS的实现原理
+				 
+				     1） 一个抽象类，内部是一个先进先出的队列（CLH队列，自旋锁的队列，有点空间复杂度低），用双向链表实现，子类必须重写tryRelease和 tryAcquire    
+					     的方法来自定义锁的操作，这个类有三个比较重要的变量head 表示当前持有锁的线程。tail 队尾等待的线程，state 表示锁状态（其实不同的状态下有不同的语义），state等于0表示目前锁可用，state=1 表示该锁被占用了一次，2 表示两次，以此类推，在AQS内部基于CAS对其进行更新。
+						 
+                 6.5 独占锁、共享锁；可重入的独占锁ReentrantLock、共享锁 实现原理
+				 
+				     独占锁：只有一个线程能执行，如ReentrantLock ; 重写tryAcuire 尝试获取资源，成功返回true 失败返回fasle
+					         tryRelease 尝试释放资源，成功返回true,失败返回fasle;
+							 isHeldExclusiveLy：该线程是否独占资源。只有用到Condition才需要去实现它
+							 
+							 以ReentrantLock 为例，state初始化为0表示未锁定。当lock时，会调用tryAcquire 的方法并独占该所并将
+							 state+1. 此后其他线程再tryAcquire时就会失败，直到调用unlock,state=0 时，其他线程才有机会机会。
+							 当然，释放锁之前，A线程是可以重复获取此锁的，state会累加，这就是可重入的概念。但是获取多少次，就要释放
+							 多少次，这样才能保障state 回到0的状态
+							 
+					 共享锁：过个线程可以同时执行，如Semaphore、CountDownLatch)。
+					 
+					         tryAcquireShared 尝试获取资源。负数表示失败，0表示成功但没有可用资源；正式表示成功，有剩余资源
+							 tryReleasedShared 尝试释放资源，成功返回true，失败返回false;
+							 
+							 以countdownlatch为例，任务分为N个子线程去执行，state也初始化为N,（注意N要与线程个数保持一致）。这些子线程
+						     是并行执行的，每个子线程执行完后countDown一次，state会用CAS减一，等待所有的线程执行完后（state=0）,会unpark
+							 主调用线程，然后主调用线程会从await()函数返回，继续后续动作；await 会将该函数加入等待队列的头部，countDown为0
+							 时，取出来继续执行；
+							 
+				      一般来说，要么是共享模式，要么是独占模式。但是AQS 也支持独占和共享模式的，比如ReenrantReadWriteLock。
+					    
+                 6.6 公平锁和非公平锁
+				 
+				     公平锁： 先进先出 等待队列策略
+					 非公平锁：一进入立马尝试获得锁，如失败
+				 
+				     ReentrantLock 支持公平锁和非公平锁；// 位移,CLH队列锁算法
+				 
+				      
+                 6.7 读写锁 ReentrantReadWriteLock的实现原理
+				      //多读书
+                 6.8 LockSupport工具
+				     类似于wait 和 notify的功能，jdk1.5 提供了LockSupport.park() 和 LockSupport.unpark() 的本地方法实现，实现线程的阻塞和唤醒
+					 
+                 6.9 Condition接口及其实现原理
+				     Condition 是个接口类，主要用于线程的等待和执行操作，包含wait cancel signal 注意不包含（lock 和 unlock 方法，那是属于lock的接口）的方法，主要实现原理是内部维护了一个等待线程的队列，当调用lock 方法时，
+					 会在内部的等待队列新增一个节点，当调用signal 的方法时，将这个节点转移到同步的队列的队尾
+					 
+                 6.10 HashMap、HashSet、ArrayList、LinkedList、HashTable、ConcurrentHashMap、TreeMap的实现原理
+				      ConcurrentHashMap 分段锁。分成很多个Segment 每一个segment 都是一个hashtable
+					  Treemap  红黑树
+                 6.11 HashMap的并发问题
+				      多线程put 导致get死循环// 用hashtable 或者concurrenthashmap/ 或者用集合类Synchronized 一下
+				      
+                 6.12 ConcurrentLinkedQueue的实现原理
+				      
+					  队列有两种阻塞队列BlockingQueue和非阻塞队列ConcurrentLinkedqueue：
+					  ConcurrentLinkedQueue 使用CAS来保持元素的一致性，来实现并发
+					  BlockingQueue 是基于ReentrantLock 实现的
+				 
+                 6.13 Fork/Join框架
+				      Fork/Join 是java7 提供了的一个用于并行执行任务的框架，是把一个大任务分割成若干个小任务，
+					  最终汇总每个小任务后得到大任务结果的框架
+					  
+					  工作窃取算法：
+					   wokr-stealing 算法是指某个线程从其他队列里窃取任务来执行。原因是，有些任务执行的快，如果执行完不能干等着
+					   所以会从其他的工作队列从获取。维护的数据结构是一个双端队列，正常读取从队列头部获取任务，窃取是从队尾获取；
+					   这样设计是为了减少线程的竞争
+					   
+					   提供两个子类：
+					     
+						 RecursiveAction: 用于没有返回结果的任务。
+						 RecursiveTask:   用于有返回结果的任务
+						 
+					     需要重载compute 的方法当一个任务的长度小于一定的阈值则直接进行计算
+						 如果大于，就继续进行拆分，直到小于阈值为止；
+						 
+						 拆分时调用fork方法，作用是把他放入到一个ForkAndJoinTask 的数组队列里面，然后再调用ForkJoinPool里面的signalWork()
+						 方法唤醒或创建一个工作线程
+						 
+						 join用于合并执行结果，主要作用是阻塞当前线程获取结果
+						 
+						 public class Calculator extends RecursiveTask<Integer> {
+
+                         private static final int THRESHOLD = 100;
+                         private int start;
+                         private int end;
+
+                         public Calculator(int start, int end) {
+                            this.start = start;
+                            this.end = end;
+                         }
+
+                         @Override
+                         protected Integer compute() {
+                            int sum = 0;
+                            if((start - end) < THRESHOLD){
+                                for(int i = start; i< end;i++){
+                                    sum += i;
+                                }
+                           }else{
+                               int middle = (start + end) /2;
+                               Calculator left = new Calculator(start, middle);
+                               Calculator right = new Calculator(middle + 1, end);
+                               left.fork();
+                               right.fork();
+
+                               sum = left.join() + right.join();
+                           }
+                           return sum;
+                         }
+
+                       }
+						 
+                 6.14 CountDownLatch和CyclicBarrier，Semaphore  //尾递归，死锁
+				 
+				      CountDownLatch： 一个任务要在其他任务都执行完以后，才能执行，
+					  用法：在等待的线程里调用await(), 然后 再在其他执行的线程里调用countdown
+					        当countdown执行到0时，等待的线程会继续执行
+							
+					  CyclicBarrier: 当所有任务到达一个节点以后再继续往下执行，通过在线程里面调用await来等待
+					  
+					  实现原理和CountDownLatch 有所不同，CountDownLatch 是通过继承aqs 来自定义同步器的，但是CyclicBarrier
+					  则是通过ReentrantLock 和 condition类来实现
+					  * class Solver {
+                      *   final int N;
+                      *   final float[][] data;
+                      *   final CyclicBarrier barrier;
+                      *
+                      *   class Worker implements Runnable {
+                      *     int myRow;
+                      *     Worker(int row) { myRow = row; }
+                      *     public void run() {
+                      *       while (!done()) {
+                      *         processRow(myRow);
+                      *
+                      *         try {
+                      *           barrier.await();
+                      *         } catch (InterruptedException ex) {
+                      *           return;
+                      *         } catch (BrokenBarrierException ex) {
+                      *           return;
+                      *         }
+                      *       }
+                      *     }
+                      *   }
+                      *
+                      *   public Solver(float[][] matrix) {
+                      *     data = matrix;
+                      *     N = matrix.length;
+                      *     barrier = new CyclicBarrier(N,
+                      *                                 new Runnable() {
+                      *                                   public void run() {
+                      *                                     mergeRows(...);
+                      *                                   }
+                      *                                 });
+                      *     for (int i = 0; i < N; ++i)
+                      *       new Thread(new Worker(i)).start();
+                      *
+                      *     waitUntilDone();
+                      *   }
+                      * }}
+				 
+				      Semaphore:  信号量是用来对于某一共享资源所能访问的最大个数进行限制，比如说20个人上厕所，但是只有5个坑，所以有15个人需要等待，等别人用
+					              完了才能用。另外其他人的等待是可以随机获得优先机会，也是可以按照先来后台的顺序获得机会，这取决于所用的是公平模式还是非公平
+								  模式。
+								  通过acquire方法获得许可，release 释放许可
+								  
+					   public class TestSemaphore {
+
+                            public static void main(String[] args) {
+
+                           // 线程池
+
+                           ExecutorService exec = Executors.newCachedThreadPool();
+
+                          // 只能5个线程同时访问
+
+                          final Semaphore semp = new Semaphore(5);
+ 
+                          // 模拟20个客户端访问
+ 
+                          for (int index = 0; index < 20; index++) {
+
+                                  final int NO = index;
+ 
+                                  Runnable run = new Runnable() {
+
+                                                 public void run() {
+
+                                                            try {
+
+                                                                    // 获取许可
+
+                                                                    semp.acquire();
+
+                                                                    System.out.println("Accessing: " + NO);
+
+                                                                    Thread.sleep((long) (Math.random() * 10000));
+
+                                                                    // 访问完后，释放
+
+                                                                    semp.release();
+
+                                                                    System.out.println("-----------------"+semp.availablePermits());
+
+                                                            } catch (InterruptedException e) {
+
+                                                                    e.printStackTrace();
+
+                                                            }
+
+                                                  }
+
+                                       };
+
+                                    exec.execute(run);
+
+                                }
+
+                                  // 退出线程池
+
+                                exec.shutdown();
+
+                         }
+ 
+                   } 
+
+                   执行结果如下：
+
+                  Accessing: 0
+
+                  Accessing: 1
+
+                  Accessing: 3
+
+                  Accessing: 4
+
+                  Accessing: 2
+
+                  -----------------0
+
+                  Accessing: 6
+
+                  -----------------1
+
+                  Accessing: 7
+
+                  -----------------1
+
+                  Accessing: 8
+
+                  -----------------1
+
+                  Accessing: 10
+
+                  -----------------1
+
+                  Accessing: 9
+
+                  -----------------1
+
+                  Accessing: 5
+
+                  -----------------1
+
+                  Accessing: 12
+
+                  -----------------1
+
+                  Accessing: 11
+
+                  -----------------1
+
+                  Accessing: 13
+
+                   -----------------1
+
+                   Accessing: 14
+
+                   -----------------1
+
+                   Accessing: 15
+
+                   -----------------1
+
+                   Accessing: 16
+
+                   -----------------1
+
+                   Accessing: 17
+
+                   -----------------1
+
+                   Accessing: 18
+
+                   -----------------1
+
+                   Accessing: 19'
+
+								   
+								  
+				       
+				 6.15 synchronized 和 lock
+				      
+					  1、 ReentrantLock 拥有Synchronized相同的并发性和内存语义，此外还多了 锁投票，定时锁等候和中断锁等候
+                         线程A和B都要获取对象O的锁定，假设A获取了对象O锁，B将等待A释放对O的锁定，
+                         如果使用 synchronized ，如果A不释放，B将一直等下去，不能被中断
+                         如果 使用ReentrantLock，如果A不释放，可以使B在等待了足够长的时间以后，中断等待，而干别的事情
+
+                         ReentrantLock获取锁定与三种方式：
+                         a) lock(), 如果获取了锁立即返回，如果别的线程持有锁，当前线程则一直处于休眠状态，直到获取锁
+                         b) tryLock(), 如果获取了锁立即返回true，如果别的线程正持有锁，立即返回false；
+                         c)tryLock(long timeout,TimeUnit unit)， 如果获取了锁定立即返回true，如果别的线程正持有锁，会等待参数给定的时间，在等待的过程中，如果获取了锁定，就返回true，如果等待超时，返回false；
+                         d) lockInterruptibly:如果获取了锁定立即返回，如果没有获取锁定，当前线程处于休眠状态，直到或者锁定，或者当前线程被别的线程中断
+
+                     2、 synchronized是在JVM层面上实现的，不但可以通过一些监控工具监控synchronized的锁定，而且在代码执行时出现异常，
+					       JVM会自动释放锁定， 但是使用Lock则不行，lock是通过代码实现的，要保证锁定一定会被释放，就必须将unLock()放到finally{}中
+ 
+                     3、 在资源竞争不是很激烈的情况下，Synchronized的性能要优于ReetrantLock，但是在资源竞争很激烈的情况下，Synchronized的性能会下降几十倍，
+						   但是ReetrantLock的性能能维持常态；5.0 的多线程任务包对于同步的性能方面有了很大的改进，在原有synchronized关键字的基础上，
+						   又增加了ReentrantLock，以及各种Atomic类。了解其性能的优劣程度，有助与我们在特定的情形下做出正确的选择。
+					  
+				 6.16 ThreadLocal 设计
+				      每个线程保存本地对象。
+					  并不是用来解决共享对象的多线程访问问题的，一般情况下，通过threadLocal.set()到线程中的对象是该线程使用自己的对象，其他线程不需要访问也访问
+					  不到的。各个线程中访问得到的是不同的对象。另外。说ThreadLocal使得各个线程保持各自独立的一个对象，是通过每个线程创建一个对象来实现的，
+					  并不是一个副本。
+					  
+					  内部实现：会维护一个Map,key是threadLocal 本身，set是keyMap 保存， 一个threadlocal 可以有多个map. 之前版本用ThreadLocalMap 实现 Entry自定义为软引用
+					  当前版本用values 类来实现，内部维护了一个数组，index是 threadlocal 的hash 值，和values 类的mask 通过与取得，mask值是数组长度减一
+					  
+					  常用场景： 数据库连接管理，session 管理
+					   join 用法： 内部基于wait 实现
+					   
 			   76  JVM
 			   
 			       JVM 的组成由类加载器把字节码文件加进虚拟机
