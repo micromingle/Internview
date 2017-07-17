@@ -410,6 +410,12 @@ public class Inter {
                       公平锁比较慢   */
 
        /*   36   apt 动态编译
+	   
+	             APT(Annotation processing tool) 是一种处理注释的工具,它对源代码文件进行检测找出其中的Annotation，使用Annotation进行额外的处理。
+                 Annotation处理器在处理Annotation时可以根据源文件中的Annotation生成额外的源文件和其它的文件(文件具体内容由Annotation处理器的编写者决定),
+				 APT还会编译生成的源文件和原来的源文件，将它们一起生成class文件.使用APT主要的目的是简化开发者的工作量。
+                 因为APT可以编译程序源代码的同时，生成一些附属文件(比如源文件类文件程序发布描述文件等)，这些附属文件的内容也都是
+				 与源代码相关的，换句话说，使用APT可以代替传统的对代码信息和附属文件的维护工作。
 
             37   java 的容器
 
@@ -1039,12 +1045,10 @@ public class Inter {
 
          // 67 大端 小端
 
-<<<<<<< HEAD
+
          // 68 udp 校验
 
-=======
          // 68 tcp校验
->>>>>>> 478ca3819f3ed89287352dc2cd72d6d3898a61d9
 		 
 		 // 70 restful
 		 // 69 zygote Android通过zygote生成其他程序和进程
@@ -1529,6 +1533,58 @@ public class Inter {
 						   每个class分配一个独立的常量池，但是运行时常量池中的字符串常量池是全局共享的。
 				 
 				 77  NIO优点和原理
+				 
+				     在Java 1.4 之前的I/O系统中，提供的都是面向流的I/O系统，系统一次一个字节地处理数据，一个输入流产生一个字节的数据，
+					 一个输出流消费一个字节的数据，面向流的I/O速度非常慢，而在Java 1.4 中推出了NIO，这是一个面向块的I/O系统，
+					 系统以块的方式处理处理，每一个操作在一步中产生或者消费一个数据块，按块处理要比按字节处理数据快的多。
+					 
+					 在NIO中有几个核心对象需要掌握：缓冲区（Buffer）、通道（Channel）、选择器（Selector）。
+					 
+					 1）缓冲区Buffer
+					 
+                     缓冲区实际上是一个容器对象，更直接的说，其实就是一个数组，在NIO库中，所有数据都是用缓冲区处理的。
+					 在读取数据时，它是直接读到缓冲区中的； 在写入数据时，它也是写入到缓冲区中的；任何时候访问 NIO 中的数据，
+					 都是将它放到缓冲区中。而在面向流I/O系统中，所有数据都是直接写入或者直接将数据读取到Stream对象中。
+					 
+					 2）通道Channel
+					 
+                     通道是一个对象，通过它可以读取和写入数据，当然了所有数据都通过Buffer对象来处理。
+					 我们永远不会将字节直接写入通道中，相反是将数据写入包含一个或者多个字节的缓冲区。
+					 同样不会直接从通道中读取字节，而是将数据从通道读入缓冲区，再从缓冲区获取这个字节。
+                     在NIO中，提供了多种通道对象，而所有的通道对象都实现了Channel接口。
+					 
+					 3）使用NIO读取数据
+					 
+                     在前面我们说过，任何时候读取数据，都不是直接从通道读取，而是从通道读取到缓冲区。所以使用NIO读取数据可以分为下面三个步骤： 
+                     1. 从FileInputStream获取Channel 
+                     2. 创建Buffer 
+                     3. 将数据从Channel读取到Buffer中
+                     下面是一个简单的使用NIO从文件中读取数据的例子：
+					 
+                     public class Program {  
+                          static public void main( String args[] ) throws Exception {  
+                              FileInputStream fin = new FileInputStream("c:\\test.txt");  
+          
+                             // 获取通道  
+                             FileChannel fc = fin.getChannel();  
+          
+                             // 创建缓冲区  
+                             ByteBuffer buffer = ByteBuffer.allocate(1024);  
+          
+                             // 读取数据到缓冲区  
+                             fc.read(buffer);  
+          
+                             buffer.flip();  
+          
+                             while (buffer.remaining()>0) {  
+                                 byte b = buffer.get();  
+                                 System.out.print(((char)b));  
+                                }  
+          
+                               fin.close();  
+                             }  
+                     }  
+					 
 				  
 				 78  java 内部类
 				   
