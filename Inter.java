@@ -436,6 +436,40 @@ public class Inter {
                      ThreadPoolExecutor.CallerRunsPolicy：由调用线程处理该任务
 
             39   生产者，消费者模式
+			
+                  * class Producer implements Runnable {
+                  *   private final BlockingQueue queue;
+                  *   Producer(BlockingQueue q) { queue = q; }
+                  *   public void run() {
+                  *     try {
+                  *       while (true) { queue.put(produce()); }
+                  *     } catch (InterruptedException ex) { ... handle ...}
+                  *   }
+                  *   Object produce() { ... }
+                  * }
+                  *
+                  * class Consumer implements Runnable {
+                  *   private final BlockingQueue queue;
+                  *   Consumer(BlockingQueue q) { queue = q; }
+                  *   public void run() {
+                  *     try {
+                  *       while (true) { consume(queue.take()); }
+                  *     } catch (InterruptedException ex) { ... handle ...}
+                  *   }
+                  *   void consume(Object x) { ... }
+                  * }
+                  *
+                  * class Setup {
+                  *   void main() {
+                  *     BlockingQueue q = new SomeQueueImplementation();
+                  *     Producer p = new Producer(q);
+                  *     Consumer c1 = new Consumer(q);
+                  *     Consumer c2 = new Consumer(q);
+                  *     new Thread(p).start();
+                  *     new Thread(c1).start();
+                  *     new Thread(c2).start();
+                  *   }
+                  * }
 
             40   CountDownLatch,  CycleBarrier;
 
@@ -876,7 +910,8 @@ public class Inter {
           // 62 view 滑动冲突的解决 / 滚动冲突的解决
 
          // 63  各种touch Event 事件详解
-		 
+		       ViewGroup 包含onInterceptEvent , 每次view触摸后，就会执行onInterceptEvent, 假如返回true的话，说明父视图自己会响应
+			   然后再在onTouchEvent 进行处理事件，并向子视图发送Action_CANCEL 事件。假如返回false,则会把事件传给子视图
 		 
 		 // How the Activity handles touch:
 		    
@@ -942,11 +977,17 @@ public class Inter {
  
                 3、AppClass Loader（系统类加载器AppClassLoader）：加载System.getProperty("java.class.path")所指定的路径或jar。在使用Java运行程序时，也可以加上-cp来覆盖原有的Classpath设置，例如： java -cp ./lavasoft/classes HelloWorld
 		    // 特点  
-			    三、类加载器的特点
- 
-                 1、运行一个程序时，总是由AppClass Loader（系统类加载器）开始加载指定的类。
-                 2、在加载类时，每个类加载器会将加载任务上交给其父，如果其父找不到，再由自己去加载。
-                 3、Bootstrap Loader（启动类加载器）是最顶级的类加载器了，其父加载器为null.
+			    三、双亲委托机制以及原因
+				    双亲委托模型的工作过程是：如果一个类加载器收到了类加载的请求，它首先不会自己去尝试加载这个类，而是把这个请求委托给父类加载器去完成，每一个层次的类加载器都是如此，因此所有的加载请求最终都应该传送到顶层的启动类加载器中，只有当父类加载器反馈自己无法完成这个加载请求（它的搜索范围中没有找到所需要加载的类）时，子加载器才会尝试自己去加载
+					
+					使用双亲委托机制的好处是：能够有效确保一个类的全局唯一性，当程序中出现多个限定名相同的类时，类加载器在执行加载时，始终只会加载其中的某一个类。
+
+                     使用双亲委托模型来组织类加载器之间的关系，有一个显而易见的好处就是Java类随着它的类加载器一起具备了一种带有优先级的层次关系。例如类java.lang.Object，它存放在rt.jar之中，无论哪一个类加载器要加载这个类，最终都是委托给处于模型最顶端的启动类加载器进行加载，因此Object类在程序的各种加载器环境中都是同一个类。相反，如果没有使用双亲委托模型，由各个类加载器自行去加载的话，如果用户自己编写了一个称为java.lang.Object的类，并放在程序的ClassPath中，那系统中将会出现多个不同的Object类，Java类型体系中最基础的行为也就无法保证，应用程序也将会变得一片混乱。
+					 双亲机制是为了保证java核心库的类型安全，不会出现用户自己能定义java.lang.Object类的情况。
+					
+					
+					
+				   
 				 
 				 五、类的加载
  
@@ -955,13 +996,55 @@ public class Inter {
                   2、通过Class.forName()方法动态加载
                   3、通过ClassLoader.loadClass()方法动态加载
                   4、同一个ClassLoader加载的类文件，只有一个Class实例。但是，如果同一个类文件被不同的ClassLoader载入，则会有两份不同的ClassLoader实例（前提是着   两个类加载器不能用相同的父类加载器）
+				  
+				   5 自定义加载器要重写findclass
+				  
+				  六， 类的初始化顺序
+				  
+				    属性、方法、构造方法和自由块都是类中的成员，在创建类的对象时，类中各成员的执行顺序：
+                      1.父类静态成员和静态初始化快，按在代码中出现的顺序依次执行。
+                      2.子类静态成员和静态初始化块，按在代码中出现的顺序依次执行。
+                      3. 父类的实例成员和实例初始化块，按在代码中出现的顺序依次执行。
+                      4.执行父类的构造方法。
+                      5.子类实例成员和实例初始化块，按在代码中出现的顺序依次执行。
+                      6.执行子类的构造方法。
+					   
+	                   class SingleTon {
+	                         private static SingleTon singleTon = new SingleTon();
+	                         public static int count1;
+	                         public static int count2 = 0;
+       
+	                         private SingleTon() {
+	                             	count1++;
+	                             	count2++;
+	                         }
+
+	                         public static SingleTon getInstance() {
+		                            return singleTon;
+	                         }
+
+                             public static void main(String[] args) {
+		                           SingleTon singleTon = SingleTon.getInstance();
+	                                System.out.println("count1=" + singleTon.count1);
+		                           System.out.println("count2=" + singleTon.count2);
+	                          }
+                         }
+                   
+				         输出结果：
+						 
+					      count1=1
+                          count2=0
 
          // 66 热修复技术Tinker Andfix Robust // Instant run 原理
 
          // 67 大端 小端
 
+<<<<<<< HEAD
          // 68 udp 校验
 
+=======
+         // 68 tcp校验
+>>>>>>> 478ca3819f3ed89287352dc2cd72d6d3898a61d9
 		 
 		 // 70 restful
 		 // 69 zygote Android通过zygote生成其他程序和进程
@@ -981,8 +1064,518 @@ public class Inter {
 		  means that no other apps have permission.
           This means that if an app tries to do something it shouldn’t, like read the data from another app, or dial the phone (which is a separate application) 
 		  then Android protects against this because the app doesn’t have the right privileges.
+		 
+		  71 AsyncTask 源码分析 //双端队列Dequeue
+		  
+		    // 核心线程数：根据CPU核心数，至少两个，最多四个，最好可以比cpu核心数少1，以免占满cpu
+			// 最大线程数 核心数的2倍加一，存活时间30秒；
+			// 排队策略：LInkedBlockQUeue,最多128个等待线程
+			 // 线程池当前版本串行，串行--》并发---》串行
+			 // 默认线程池 SERIAL_EXECUTOR一个进程只有一个
+			 // Callable 接口返回泛型，mWOkerThread 就是继承Callable;
+			  // FutureTask 真正的工作类，用于包装Callable, 实现Runnable,和Future类，Future 类定义了多个函数
+			  // 一般用于线程是否执行完，cancel,get 执行结果
+			  
+			  72 AbstractQUeuedSnchronizer 内部是链表，现先进先出的队列
+			  
+		    73  Semaphores
+			
+			 74  视图的缩放和拖动
+			 
+			 75  多线程部分
+			 
+			     6.1 synchronized和volatile理解
+				      volatile 内存语义：
+					     如果一个变量被volatile关键字修饰时，说明对这个变量的写时将本地内存拷贝刷新到共享内存中；
+						 对这个变量的读会有一些不同，读的时候无视他的本地内存的拷贝，直接去共享变量中读取数据
+						
+				       synchronized 的内存语义
+					      
+						  如果一个变量被synchronized 关键字修饰，那么对这个变量的写时将本地内存中的拷贝刷新到共享内存中
+						  ；对这个变量的读就是讲共享内存中的值刷新到本地内存，再从本地内存中读取数据。因为全过程是变量是加锁的
+						  ，其他线程无法对这个变量进行读写操作，所以可以理解成对这个变量的任何操作都是原子性的，即使线程安全的。
+						  
+						volatile 的非原子性
+						   遇到count++ 这种情况时，无法保证线程安全，因为count++ 是非原子性的。可以分解为
+						   int tem=count; tem=tem+1; count=tmp;
+						   
+						附 i++ 和 ++ i的区别
+						 
+						  1） 前者先赋值再自增，后者先自增，再赋值
+						  2） ++i和i++ 都是分两步完成的。因为++i后面一步才赋值，所有它能够当做一个变量进行级联赋值，
+						       ++i=a=b;++i是一个左值（可被寻址的值）；i++的后面一步是自增，不是左值；
+							   
+					    volatile 作用线程可见性和防止指令重排序
+						
+						 什么是指令重排序？有两个层面：
+                       在虚拟机层面，为了尽可能减少内存操作速度远慢于CPU运行速度所带来的CPU空置的影响，虚拟机会按照自己的一些规则(这规则后面再叙述)将程序编写顺序打乱——即写在后面的代码在时间顺序上可能会先执行，而写在前面的代码会后执行——以尽可能充分地利用CPU。拿上面的例子来说：假如不是a=1的操作，而是a=new byte[1024*1024](分配1M空间)，那么它会运行地很慢，此时CPU是等待其执行结束呢，还是先执行下面那句flag= true呢？显然，先执行flag=true可以提前使用CPU，加快整体效率，当然这样的前提是不会产生错误(什么样的错误后面再说) 。虽然这里有两种情况：后面的代码先于前面的代码开始执行；前面的代码先开始执行，但当效率较慢的时候，后面的代码开始执行并先于前面的代码执 行结束。不管谁先开始，总之后面的代码在一些情况下存在先结束的可能。
+                        在硬件层面，CPU会将接收到的一批指令按照其规则重排序，同样是基于CPU速度比缓存速度快的原因，和上一点的目的类似，
+						只是硬件处理的话，每次只能在接收到的有限指令范围内重排序，而虚拟机可以在更大层面、更多指令范围内重排序。
+                        硬件的重排序机制参见《从JVM并发看CPU内存指令重排序(Memory Reordering)》  
+						
+						 比较：
 
+                         ①  volatile轻量级，只能修饰变量。synchronized重量级，还可修饰方法
 
+                         ②  volatile只能保证数据的可见性，不能用来同步，因为多个线程并发访问volatile修饰的变量不会阻塞。
+                            synchronized不仅保证可见性，而且还保证原子性，因为，只有获得了锁的线程才能进入临界区，
+						     从而保证临界区中的所有语句都全部执行。多个线程争抢synchronized锁对象时，会出现阻塞。
+						   
+                 6.2 Unsafe类的原理，使用它来实现CAS。因此诞生了AtomicInteger系列等
+				 
+				      
+                 6.3 CAS可能产生的ABA问题的解决，如加入修改次数、版本号
+				 
+				      CAS虽然很高效的解决原子操作，但是CAS仍然存在三大问题。ABA问题，循环时间长开销大和只能保证一个
+					  共享变量的原子操作
+ 
+                      1.ABA问题。因为CAS需要在操作值的时候检查下值有没有发生变化，如果没有发生变化则更新，
+					     但是如果一个值原来是A，变成了B，又变成了A，那么使用CAS进行检查时会发现它的值没有发生变化，
+					     但是实际上却变化了。ABA问题的解决思路就是使用版本号。在变量前面追加上版本号，每次变量更新的时候
+                         把版本号加一，那么A－B－A 就会变成1A-2B－3A。
+                         从Java1.5开始JDK的atomic包里提供了一个类AtomicStampedReference来解决ABA问题。这个类的compareAndSet
+					     方法作用是首先检查当前引用是否等于预期引用，并且当前标志是否等于预期标志，如果全部相等，
+					     则以原子方式将该引用和该标志的值设置为给定的更新值。
+                         关于ABA问题参考文档: http://blog.hesey.NET/2011/09/resolve-aba-by-atomicstampedreference.html 
+
+                       2. 循环时间长开销大。自旋CAS如果长时间不成功，会给CPU带来非常大的执行开销。如果JVM能支持
+                          处理器提供的pause指令那么效率会有一定的提升，pause指令有两个作用，第一它可以延迟流水线执行指令（de-pipeline）,使CPU不会消耗过多的执行资源，延迟的时间取决于具体实现的版本，在一些处理器上延迟时间是零。
+                          第二它可以避免在退出循环的时候因内存顺序冲突（memory order violation）
+                          而引起CPU流水线被清空（CPU pipeline flush），从而提高CPU的执行效率。
+ 
+                        3. 只能保证一个共享变量的原子操作。当对一个共享变量执行操作时，我们可以使用
+	                       循环CAS的方式来保证原子操作，但是对多个共享变量操作时，循环CAS就无法保证操作的原子性，
+						   这个时候就可以用锁，或者有一个取巧的办法，就是把多个共享变量合并成一个共享变量来操作。
+						   比如有两个共享变量i＝2,j=a，合并一下ij=2a，然后用CAS来操作ij。从Java1.5开始JDK提供了
+						   AtomicReference类来保证引用对象之间的原子性，你可以把多个变量放在一个对象里来进行CAS操作。
+				     
+                 6.4 同步器AQS的实现原理
+				 
+				     1） 一个抽象类，内部是一个先进先出的队列（CLH队列，自旋锁的队列，有点空间复杂度低），用双向链表实现，子类必须重写tryRelease和 tryAcquire    
+					     的方法来自定义锁的操作，这个类有三个比较重要的变量head 表示当前持有锁的线程。tail 队尾等待的线程，state 表示锁状态（其实不同的状态下有不同的语义），state等于0表示目前锁可用，state=1 表示该锁被占用了一次，2 表示两次，以此类推，在AQS内部基于CAS对其进行更新。
+						 
+                 6.5 独占锁、共享锁；可重入的独占锁ReentrantLock、共享锁 实现原理
+				 
+				     独占锁：只有一个线程能执行，如ReentrantLock ; 重写tryAcuire 尝试获取资源，成功返回true 失败返回fasle
+					         tryRelease 尝试释放资源，成功返回true,失败返回fasle;
+							 isHeldExclusiveLy：该线程是否独占资源。只有用到Condition才需要去实现它
+							 
+							 以ReentrantLock 为例，state初始化为0表示未锁定。当lock时，会调用tryAcquire 的方法并独占该所并将
+							 state+1. 此后其他线程再tryAcquire时就会失败，直到调用unlock,state=0 时，其他线程才有机会机会。
+							 当然，释放锁之前，A线程是可以重复获取此锁的，state会累加，这就是可重入的概念。但是获取多少次，就要释放
+							 多少次，这样才能保障state 回到0的状态
+							 
+					 共享锁：过个线程可以同时执行，如Semaphore、CountDownLatch)。
+					 
+					         tryAcquireShared 尝试获取资源。负数表示失败，0表示成功但没有可用资源；正式表示成功，有剩余资源
+							 tryReleasedShared 尝试释放资源，成功返回true，失败返回false;
+							 
+							 以countdownlatch为例，任务分为N个子线程去执行，state也初始化为N,（注意N要与线程个数保持一致）。这些子线程
+						     是并行执行的，每个子线程执行完后countDown一次，state会用CAS减一，等待所有的线程执行完后（state=0）,会unpark
+							 主调用线程，然后主调用线程会从await()函数返回，继续后续动作；await 会将该函数加入等待队列的头部，countDown为0
+							 时，取出来继续执行；
+							 
+				      一般来说，要么是共享模式，要么是独占模式。但是AQS 也支持独占和共享模式的，比如ReenrantReadWriteLock。
+					    
+                 6.6 公平锁和非公平锁
+				 
+				     公平锁： 先进先出 等待队列策略
+					 非公平锁：一进入立马尝试获得锁，如失败
+				 
+				     ReentrantLock 支持公平锁和非公平锁；// 位移,CLH队列锁算法
+				 
+				      
+                 6.7 读写锁 ReentrantReadWriteLock的实现原理
+				      //多读书
+                 6.8 LockSupport工具
+				     类似于wait 和 notify的功能，jdk1.5 提供了LockSupport.park() 和 LockSupport.unpark() 的本地方法实现，实现线程的阻塞和唤醒
+					 
+                 6.9 Condition接口及其实现原理
+				     Condition 是个接口类，主要用于线程的等待和执行操作，包含wait cancel signal 注意不包含（lock 和 unlock 方法，那是属于lock的接口）的方法，主要实现原理是内部维护了一个等待线程的队列，当调用lock 方法时，
+					 会在内部的等待队列新增一个节点，当调用signal 的方法时，将这个节点转移到同步的队列的队尾
+					 
+                 6.10 HashMap、HashSet、ArrayList、LinkedList、HashTable、ConcurrentHashMap、TreeMap的实现原理
+				      ConcurrentHashMap 分段锁。分成很多个Segment 每一个segment 都是一个hashtable
+					  Treemap  红黑树
+                 6.11 HashMap的并发问题
+				      多线程put 导致get死循环// 用hashtable 或者concurrenthashmap/ 或者用集合类Synchronized 一下
+				      
+                 6.12 ConcurrentLinkedQueue的实现原理
+				      
+					  队列有两种阻塞队列BlockingQueue和非阻塞队列ConcurrentLinkedqueue：
+					  ConcurrentLinkedQueue 使用CAS来保持元素的一致性，来实现并发
+					  BlockingQueue 是基于ReentrantLock 实现的
+				 
+                 6.13 Fork/Join框架
+				      Fork/Join 是java7 提供了的一个用于并行执行任务的框架，是把一个大任务分割成若干个小任务，
+					  最终汇总每个小任务后得到大任务结果的框架
+					  
+					  工作窃取算法：
+					   wokr-stealing 算法是指某个线程从其他队列里窃取任务来执行。原因是，有些任务执行的快，如果执行完不能干等着
+					   所以会从其他的工作队列从获取。维护的数据结构是一个双端队列，正常读取从队列头部获取任务，窃取是从队尾获取；
+					   这样设计是为了减少线程的竞争
+					   
+					   提供两个子类：
+					     
+						 RecursiveAction: 用于没有返回结果的任务。
+						 RecursiveTask:   用于有返回结果的任务
+						 
+					     需要重载compute 的方法当一个任务的长度小于一定的阈值则直接进行计算
+						 如果大于，就继续进行拆分，直到小于阈值为止；
+						 
+						 拆分时调用fork方法，作用是把他放入到一个ForkAndJoinTask 的数组队列里面，然后再调用ForkJoinPool里面的signalWork()
+						 方法唤醒或创建一个工作线程
+						 
+						 join用于合并执行结果，主要作用是阻塞当前线程获取结果
+						 
+						 public class Calculator extends RecursiveTask<Integer> {
+
+                         private static final int THRESHOLD = 100;
+                         private int start;
+                         private int end;
+
+                         public Calculator(int start, int end) {
+                            this.start = start;
+                            this.end = end;
+                         }
+
+                         @Override
+                         protected Integer compute() {
+                            int sum = 0;
+                            if((start - end) < THRESHOLD){
+                                for(int i = start; i< end;i++){
+                                    sum += i;
+                                }
+                           }else{
+                               int middle = (start + end) /2;
+                               Calculator left = new Calculator(start, middle);
+                               Calculator right = new Calculator(middle + 1, end);
+                               left.fork();
+                               right.fork();
+
+                               sum = left.join() + right.join();
+                           }
+                           return sum;
+                         }
+
+                       }
+						 
+                 6.14 CountDownLatch和CyclicBarrier，Semaphore  //尾递归，死锁
+				 
+				      CountDownLatch： 一个任务要在其他任务都执行完以后，才能执行，
+					  用法：在等待的线程里调用await(), 然后 再在其他执行的线程里调用countdown
+					        当countdown执行到0时，等待的线程会继续执行
+							
+					  CyclicBarrier: 当所有任务到达一个节点以后再继续往下执行，通过在线程里面调用await来等待
+					  
+					  实现原理和CountDownLatch 有所不同，CountDownLatch 是通过继承aqs 来自定义同步器的，但是CyclicBarrier
+					  则是通过ReentrantLock 和 condition类来实现
+					  * class Solver {
+                      *   final int N;
+                      *   final float[][] data;
+                      *   final CyclicBarrier barrier;
+                      *
+                      *   class Worker implements Runnable {
+                      *     int myRow;
+                      *     Worker(int row) { myRow = row; }
+                      *     public void run() {
+                      *       while (!done()) {
+                      *         processRow(myRow);
+                      *
+                      *         try {
+                      *           barrier.await();
+                      *         } catch (InterruptedException ex) {
+                      *           return;
+                      *         } catch (BrokenBarrierException ex) {
+                      *           return;
+                      *         }
+                      *       }
+                      *     }
+                      *   }
+                      *
+                      *   public Solver(float[][] matrix) {
+                      *     data = matrix;
+                      *     N = matrix.length;
+                      *     barrier = new CyclicBarrier(N,
+                      *                                 new Runnable() {
+                      *                                   public void run() {
+                      *                                     mergeRows(...);
+                      *                                   }
+                      *                                 });
+                      *     for (int i = 0; i < N; ++i)
+                      *       new Thread(new Worker(i)).start();
+                      *
+                      *     waitUntilDone();
+                      *   }
+                      * }}
+				 
+				      Semaphore:  信号量是用来对于某一共享资源所能访问的最大个数进行限制，比如说20个人上厕所，但是只有5个坑，所以有15个人需要等待，等别人用
+					              完了才能用。另外其他人的等待是可以随机获得优先机会，也是可以按照先来后台的顺序获得机会，这取决于所用的是公平模式还是非公平
+								  模式。
+								  通过acquire方法获得许可，release 释放许可
+								  
+					   public class TestSemaphore {
+
+                            public static void main(String[] args) {
+
+                           // 线程池
+
+                           ExecutorService exec = Executors.newCachedThreadPool();
+
+                          // 只能5个线程同时访问
+
+                          final Semaphore semp = new Semaphore(5);
+ 
+                          // 模拟20个客户端访问
+ 
+                          for (int index = 0; index < 20; index++) {
+
+                                  final int NO = index;
+ 
+                                  Runnable run = new Runnable() {
+
+                                                 public void run() {
+
+                                                            try {
+
+                                                                    // 获取许可
+
+                                                                    semp.acquire();
+
+                                                                    System.out.println("Accessing: " + NO);
+
+                                                                    Thread.sleep((long) (Math.random() * 10000));
+
+                                                                    // 访问完后，释放
+
+                                                                    semp.release();
+
+                                                                    System.out.println("-----------------"+semp.availablePermits());
+
+                                                            } catch (InterruptedException e) {
+
+                                                                    e.printStackTrace();
+
+                                                            }
+
+                                                  }
+
+                                       };
+
+                                    exec.execute(run);
+
+                                }
+
+                                  // 退出线程池
+
+                                exec.shutdown();
+
+                         }
+ 
+                   } 
+
+                   执行结果如下：
+
+                  Accessing: 0
+
+                  Accessing: 1
+
+                  Accessing: 3
+
+                  Accessing: 4
+
+                  Accessing: 2
+
+                  -----------------0
+
+                  Accessing: 6
+
+                  -----------------1
+
+                  Accessing: 7
+
+                  -----------------1
+
+                  Accessing: 8
+
+                  -----------------1
+
+                  Accessing: 10
+
+                  -----------------1
+
+                  Accessing: 9
+
+                  -----------------1
+
+                  Accessing: 5
+
+                  -----------------1
+
+                  Accessing: 12
+
+                  -----------------1
+
+                  Accessing: 11
+
+                  -----------------1
+
+                  Accessing: 13
+
+                   -----------------1
+
+                   Accessing: 14
+
+                   -----------------1
+
+                   Accessing: 15
+
+                   -----------------1
+
+                   Accessing: 16
+
+                   -----------------1
+
+                   Accessing: 17
+
+                   -----------------1
+
+                   Accessing: 18
+
+                   -----------------1
+
+                   Accessing: 19'
+
+								   
+								  
+				       
+				 6.15 synchronized 和 lock
+				      
+					  1、 ReentrantLock 拥有Synchronized相同的并发性和内存语义，此外还多了 锁投票，定时锁等候和中断锁等候
+                         线程A和B都要获取对象O的锁定，假设A获取了对象O锁，B将等待A释放对O的锁定，
+                         如果使用 synchronized ，如果A不释放，B将一直等下去，不能被中断
+                         如果 使用ReentrantLock，如果A不释放，可以使B在等待了足够长的时间以后，中断等待，而干别的事情
+
+                         ReentrantLock获取锁定与三种方式：
+                         a) lock(), 如果获取了锁立即返回，如果别的线程持有锁，当前线程则一直处于休眠状态，直到获取锁
+                         b) tryLock(), 如果获取了锁立即返回true，如果别的线程正持有锁，立即返回false；
+                         c)tryLock(long timeout,TimeUnit unit)， 如果获取了锁定立即返回true，如果别的线程正持有锁，会等待参数给定的时间，在等待的过程中，如果获取了锁定，就返回true，如果等待超时，返回false；
+                         d) lockInterruptibly:如果获取了锁定立即返回，如果没有获取锁定，当前线程处于休眠状态，直到或者锁定，或者当前线程被别的线程中断
+
+                     2、 synchronized是在JVM层面上实现的，不但可以通过一些监控工具监控synchronized的锁定，而且在代码执行时出现异常，
+					       JVM会自动释放锁定， 但是使用Lock则不行，lock是通过代码实现的，要保证锁定一定会被释放，就必须将unLock()放到finally{}中
+ 
+                     3、 在资源竞争不是很激烈的情况下，Synchronized的性能要优于ReetrantLock，但是在资源竞争很激烈的情况下，Synchronized的性能会下降几十倍，
+						   但是ReetrantLock的性能能维持常态；5.0 的多线程任务包对于同步的性能方面有了很大的改进，在原有synchronized关键字的基础上，
+						   又增加了ReentrantLock，以及各种Atomic类。了解其性能的优劣程度，有助与我们在特定的情形下做出正确的选择。
+					  
+				 6.16 ThreadLocal 设计
+				      每个线程保存本地对象。
+					  并不是用来解决共享对象的多线程访问问题的，一般情况下，通过threadLocal.set()到线程中的对象是该线程使用自己的对象，其他线程不需要访问也访问
+					  不到的。各个线程中访问得到的是不同的对象。另外。说ThreadLocal使得各个线程保持各自独立的一个对象，是通过每个线程创建一个对象来实现的，
+					  并不是一个副本。
+					  
+					  内部实现：会维护一个Map,key是threadLocal 本身，set是keyMap 保存， 一个threadlocal 可以有多个map. 之前版本用ThreadLocalMap 实现 Entry自定义为软引用
+					  当前版本用values 类来实现，内部维护了一个数组，index是 threadlocal 的hash 值，和values 类的mask 通过与取得，mask值是数组长度减一
+					  
+					  常用场景： 数据库连接管理，session 管理
+					   join 用法： 内部基于wait 实现
+					   
+			   76  JVM
+			   
+			       JVM 的组成由类加载器把字节码文件加进虚拟机
+				   虚拟机包括，方法区，java 栈， 本地方法栈，堆，和指令计数器
+				   
+				   其中 java 栈，指令计数器和本地方法栈是线程私有的
+				   
+				   堆区和方法区是线程间共享
+				   
+				   1)程序计数器(Program Counter Register)
+
+　　                   程序计数器是用于存储每个线程下一步将执行的JVM指令，如该方法为native的，则程序计数器中不存储任何信息
+
+                    2)JVM栈(JVM Stack)
+                       JVM栈是线程私有的，每个线程创建的同时都会创建JVM栈，JVM栈中存放的为当前线程中局部基本类型的变量（java
+					   中定义的八种基本类型：boolean、char、byte、short、int、long、float、double）、部分的返回结果以及Stack Frame，非基本类型的对象在JVM栈上仅存放一个指向堆上的地址
+
+                    3)堆(heap)
+ 
+　                   　它是JVM用来存储对象实例以及数组值的区域，可以认为Java中所有通过new创建的对象的内存都在此分配，Heap中的对象的内存需要等待GC进行回收。
+
+　　                   1）堆是JVM中所有线程共享的，因此在其上进行对象内存的分配均需要进行加锁，这也导致了new对象的开销是比较大的
+
+　　                    2）Sun Hotspot JVM为了提升对象内存分配的效率，对于所创建的线程都会分配一块独立的空间TLAB
+                           （Thread Local Allocatio Buffer），其大小由JVM根据运行的情况计算而得，在TLAB上分配对象时不需要加锁，
+						   因此JVM在给线程的对象分配内存时会尽量的在TLAB上分配，在这种情况下JVM中分配对象内存的性能和C基本是
+						   一样高效的，但如果对象过大的话则仍然是直接使用堆空间分配
+
+　　                   3）TLAB仅作用于新生代的Eden Space，因此在编写Java程序时，通常多个小的对象比大的对象分配起来更加高效。
+
+                       4)方法区（Method Area）
+
+　　                      （1）在Sun JDK中这块区域对应的为PermanetGeneration，又称为持久代。
+
+                          　2）方法区域存放了所加载的类的信息（名称、修饰符等）、类中的静态变量、类中定义为final类型的常量、
+						    类中的Field信息、类中的方法信息，当开发人员在程序中通过Class对象中的getName、isInterface等方法来获取信息时，
+							这些数据都来源于方法区域，同时方法区域也是全局共享的，在一定的条件下它也会被GC，当方法区域需要使用的内存
+							超过其允许的大小时，会抛出OutOfMemory的错误信息。
+
+                        5)本地方法栈（Native Method Stacks）
+
+　                      　JVM采用本地方法栈来支持native方法的执行，此区域用于存储每个native方法调用的状态。
+
+                        6)运行时常量池（Runtime ConstantPool）
+						   存放的为类中的固定的常量信息、方法和Field的引用信息等，其空间从方法区域中分配。JVM在加载类时会为
+						   每个class分配一个独立的常量池，但是运行时常量池中的字符串常量池是全局共享的。
+				 
+				 77  NIO优点和原理
+				  
+				 78  java 内部类
+				   
+				     1） 使用匿名内部类的好处
+					     
+						  1 内部类方法可以访问该类定义所在作用域的数据，包括私有数据
+						  2 内部类对同一个包的其他类隐藏起来
+						  3 使用匿名内部类定义回调函数节省代码
+						  
+				      2） 静态内部类和非静态内部类的区别
+					  
+					      非静态内部类持有外部类的一个饮用，而静态的没有
+					  
+					   3） 匿名内部类的变量为什么要是final 的
+					   
+					        本人比较如同的解释：
+                            “这是一个编译器设计的问题，如果你了解java的编译原理的话很容易理解。  
+                            首先，内部类被编译的时候会生成一个单独的内部类的.class文件，这个文件并不与外部类在同一class文件中。  
+                            当外部类传的参数被内部类调用时，从java程序的角度来看是直接的调用例如：  
+                             public void dosome(final String a,final int b){  
+                                 class Dosome{public void dosome(){System.out.println(a+b)}};  
+                                                Dosome some=new Dosome();  
+                                                some.dosome();  
+                                           }  
+                             从代码来看好像是那个内部类直接调用的a参数和b参数，但是实际上不是，在java编译器编译以后实际的操作代码是  
+                              class Outer$Dosome{  
+                                   public Dosome(final String a,final int b){  
+                                       this.Dosome$a=a;  
+                                       this.Dosome$b=b;  
+                                      }  
+                                   public void dosome(){  
+                                        System.out.println(this.Dosome$a+this.Dosome$b);  
+                                      }  
+                                   }
+							  }  
+                             从以上代码看来，内部类并不是直接调用方法传进来的参数，而是内部类将传进来的参数通过自己的构造器备份到了自己的内部，
+                             自己内部的方法调用的实际是自己的属性而不是外部类方法的参数。这样理解就很容易得出为什么要用final了，
+                             因为两者从外表看起来是同一个东西，实际上却不是这样，如果内部类改掉了这些参数的值也不可能影响到原参数，
+                             然而这样却失去了参数的一致性，因为从编程人员的角度来看他们是同一个东西，如果编程人员
+                             在程序设计的时候在内部类中改掉参数的值，但是外部调用的时候又发现值其实没有被改掉，
+                             这就让人非常的难以理解和接受，为了避免这种尴尬的问题存在，所以编译器设计人员把内
+                             部类能够使用的参数设定为必须是final来规避这种莫名其妙错误的存在。”
+
+					   
+					       
+				  
+			 
     //    二  开发遇到的难点回顾
     //
     //        1    超长图的处理
