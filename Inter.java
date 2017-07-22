@@ -14,6 +14,8 @@ public class Inter {
            如何处理控件的WRAP_CONTENT,MATCH_PARENT
           //view group
            如何自定义一个控件
+		   
+		   AttachInfo 记录view的状态以及和window的绑定关系
 
        2  WindowManagerService
 
