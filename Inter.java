@@ -68,7 +68,86 @@ public class Inter {
 
             10、视频的处理
 
-            11、超长图的处理
+            11、Scroller的原理以及ViewPager的实现
+			
+			    // Scoller是一个滚动工具的包装类：
+				// 以下是使用方法：
+				
+				第一步：初始化实例：
+				
+			      mScroller = new Scroller(context);
+                  ViewConfiguration configuration = ViewConfiguration.get(context);
+                  // 获取TouchSlop值，表示最小的移动像素
+                  mTouchSlop = ViewConfigurationCompat.getScaledPagingTouchSlop(configuration);
+				
+				第二步：处理点击事件：
+				
+				  // 1) 先判断父控件是否该拦截该事件
+				  
+                  public boolean onInterceptTouchEvent(MotionEvent ev) {
+                      switch (ev.getAction()) {
+                          case MotionEvent.ACTION_DOWN:
+                               mXDown = ev.getRawX();
+                               mXLastMove = mXDown;
+                               break;
+                          case MotionEvent.ACTION_MOVE:
+                               mXMove = ev.getRawX();
+                               float diff = Math.abs(mXMove - mXDown);
+                               mXLastMove = mXMove;
+                             // 当手指拖动值大于TouchSlop值时，认为应该进行滚动，拦截子控件的事件
+                               if (diff > mTouchSlop) {
+                                   return true;
+                                }
+                               break;
+                    }
+                     return super.onInterceptTouchEvent(ev);
+                 }
+				  
+				  // 2) 在onTouchEvent 执行真正的操作
+				  
+				  public boolean onTouchEvent(MotionEvent event) {
+                      switch (event.getAction()) {
+                          case MotionEvent.ACTION_MOVE:
+                               mXMove = event.getRawX();
+                               int scrolledX = (int) (mXLastMove - mXMove);
+                               if (getScrollX() + scrolledX < leftBorder) {
+                                   scrollTo(leftBorder, 0);
+                                   return true;
+                               } else if (getScrollX() + getWidth() + scrolledX > rightBorder) {
+                                    scrollTo(rightBorder - getWidth(), 0);
+                                    return true;
+                               }
+                               scrollBy(scrolledX, 0);
+                               mXLastMove = mXMove;
+                               break;
+                          case MotionEvent.ACTION_UP:
+                               // 当手指抬起时，根据当前的滚动值来判定应该滚动到哪个子控件的界面
+                               int targetIndex = (getScrollX() + getWidth() / 2) / getWidth();
+                               int dx = targetIndex * getWidth() - getScrollX();
+                               // 第二步，调用startScroll()方法来初始化滚动数据并刷新界面
+                               mScroller.startScroll(getScrollX(), 0, dx, 0);
+                               invalidate();
+                               break;
+                     }
+                      return super.onTouchEvent(event);
+                }
+				  
+				  
+				 第三步：在view的computeScroll方法里重写
+				 
+				    @Override
+                  public void computeScroll() {
+                     // 第三步，重写computeScroll()方法，并在其内部完成平滑滚动的逻辑
+                      if (mScroller.computeScrollOffset()) {
+                          scrollTo(mScroller.getCurrX(), mScroller.getCurrY());
+                          invalidate();
+                       }
+                  }
+				 
+				 
+				 //整个View树的绘图流程是在ViewRootImpl类的performTraversals()方法
+				 
+				
 
             12、Toast的Window创建过程
 
@@ -142,6 +221,45 @@ public class Inter {
                 假如是其他两种 则要自己手动计算
 
                 最后调用 setMeasuredDimension(width, height);   方法
+				
+				
+				int desiredWidth = 100;
+                int desiredHeight = 100;
+
+                int widthMode = MeasureSpec.getMode(widthMeasureSpec);
+                int widthSize = MeasureSpec.getSize(widthMeasureSpec);
+                int heightMode = MeasureSpec.getMode(heightMeasureSpec);
+                int heightSize = MeasureSpec.getSize(heightMeasureSpec);
+
+                int width;
+                int height;
+
+                //Measure Width
+                if (widthMode == MeasureSpec.EXACTLY) {
+                     //Must be this size
+                     width = widthSize;
+                } else if (widthMode == MeasureSpec.AT_MOST) {
+                    //Can't be bigger than...
+                    width = Math.min(desiredWidth, widthSize);
+                } else {
+                   //Be whatever you want
+                   width = desiredWidth;
+                }
+
+               //Measure Height
+               if (heightMode == MeasureSpec.EXACTLY) {
+                  //Must be this size
+                  height = heightSize;
+                } else if (heightMode == MeasureSpec.AT_MOST) {
+                  //Can't be bigger than...
+                  height = Math.min(desiredHeight, heightSize);
+                } else {
+                 //Be whatever you want
+                 height = desiredHeight;
+                }
+
+               //MUST CALL THIS
+              setMeasuredDimension(width, height);
 
            // view group
 
