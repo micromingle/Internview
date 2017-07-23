@@ -617,6 +617,14 @@ public class Inter {
 				   inflate 展示调用代码如下
 				   ViewStub noDataViewStub = (ViewStub) view.findViewById(R.id.no_data_viewstub);
 				   noDataView = noDataViewStub.inflate();
+				   
+			 16   自定义控件中，onIntercpetTouchEvent 只能接受action_down 事件的问题
+			       
+				   需要子控件有一个孩子onTouchEvent 返回true才可以，正常拦截
+				   
+				   详情请看 https://stackoverflow.com/questions/13283827/onintercepttouchevent-only-gets-action-down
+				   
+			 17    NestedScrolling 机制
 				 
 		     
 			 三 多线程类
@@ -1799,6 +1807,8 @@ public class Inter {
                              在程序设计的时候在内部类中改掉参数的值，但是外部调用的时候又发现值其实没有被改掉，
                              这就让人非常的难以理解和接受，为了避免这种尴尬的问题存在，所以编译器设计人员把内
                              部类能够使用的参数设定为必须是final来规避这种莫名其妙错误的存在。”
+							 
+						9   For循环实现原理
 							 
 							 
 			七, 设计模式
