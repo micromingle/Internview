@@ -96,6 +96,10 @@ public class MapStudy {
 
                 ArrayMap
                1)优点和SparseArray 大体相近，另外可以避免rehash 带来的开销
+			   
+			   
+         8  扩展// Universal Image Loader 中的
+		    //  
 
 
        */
