@@ -682,9 +682,30 @@ public class Inter {
 				  2）SurfaceView 是在Window 的下方挖一个洞，并不是一个真正的View,不支持view的缩放和移动，
 				   
 				     TextureView 则支持
+					 
+			 20   卡顿优化 //systracce
+			  
+			      在developer option 打开GPU Render Profile 通过adb shell dumpsys gfxinfo <package-name> 命令获得某一个app的绘制情况
+				  
+				   Draw    Prepare Process Execute
+					0.91    0.10    1.91    1.50
+					0.88    0.10    1.76    1.19
+					0.92    0.10    2.00    1.26
+					0.99    0.10    1.71    1.30
+					1.22    0.16    3.07    2.83
+					
+				   得到以上数据，四个过程加起来是一帧的绘制过程，如果超过16毫秒，则分析原因
+				   
+				   Execute 是指将 View 的一帧数据给到 compositor 的时间
+				   
+				   Process 是 Android 2D Renderer 处理 Display List 的时间，假如子 View 很多，层级很深，
+				   这部分时间就会花费较多
+				   
+				   Draw 是指花费在构造 Display List 上的时间，可以理解为 View.onDraw(Canvas) 所消耗的时间。
+
 			 
 			 
-			 20   NestedScrolling 机制
+			// 20   NestedScrolling 机制
 				 
 		     
 			 三 多线程类
