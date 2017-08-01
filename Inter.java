@@ -702,6 +702,15 @@ public class Inter {
 				   这部分时间就会花费较多
 				   
 				   Draw 是指花费在构造 Display List 上的时间，可以理解为 View.onDraw(Canvas) 所消耗的时间。
+				   
+			 21   如何旋转字体
+			 
+			      1） 先确定字体的坐标和度数 如下
+				  
+				      canvas.save();
+					  canvas.rotate(90f, 50, 50);
+					  canvas.drawText("Text",50, 50, paint);
+					  canvas.restore();
 
 			 
 			 
