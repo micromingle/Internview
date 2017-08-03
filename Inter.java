@@ -728,6 +728,11 @@ public class Inter {
 				未关闭的Closable对象泄露 使用detectLeakedClosableObjects()开启
 				泄露的Sqlite对象 使用detectLeakedSqlLiteObjects()开启
 				检测实例数量 使用setClassInstanceLimit()开启
+				
+			 23  view 的绘制方式
+			     
+				 ViewRootImpl.doTraversal(ViewRootImpl.java:1528)
+			     ViewRootImpl.performTraversals(ViewRootImpl.java:1841)
 			 
 			// 20   NestedScrolling 机制
 				 
