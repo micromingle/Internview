@@ -733,6 +733,9 @@ public class Inter {
 			     
 				 ViewRootImpl.doTraversal(ViewRootImpl.java:1528)
 			     ViewRootImpl.performTraversals(ViewRootImpl.java:1841)
+				 
+		     24  Viewpager的坑，当viewpager作为adapter的一部分的时候，viewpager外面一定要包一层外层控件如,
+			     Linearlayout 和 RelativeLayout
 			 
 			// 20   NestedScrolling 机制
 				 
