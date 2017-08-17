@@ -736,6 +736,8 @@ public class Inter {
 				 
 		     24  Viewpager的坑，当viewpager作为adapter的一部分的时候，viewpager外面一定要包一层外层控件如,
 			     Linearlayout 和 RelativeLayout
+				 
+		     25  处理OnTouchEvent事件 要注意处理ACTION_CANCEL 否则容易有意想不到的情况
 			 
 			// 20   NestedScrolling 机制
 				 
