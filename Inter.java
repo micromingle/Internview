@@ -542,6 +542,12 @@ public class Inter {
 						 
 				 • Intercepted events jump over child step
 				 
+				 @Override
+				 public boolean onTouchEvent(MotionEvent event) {
+					return super.onTouchEvent(event);
+				 }
+				 
+				 //以上super.onTouchEvent 表示调用父类的方法并非父控件的方法
 
             12   GLSurfaceView;
 
