@@ -232,7 +232,8 @@ public class Inter {
 				 
 				     如果主机A和主机B是一个局域网的话：主机Aip数据包的包头部分的目的地址就是主机B 的mac地址
                      
-                      ① 主机A发出ARP请求，请求帧中的数据部分包括发送者MAC地址00-0C-04-18-19-aa、发送者IP地址172.16.20.20和目标MAC地址，这里全部填充0，因为它未知（这正是ARP要询问的），目标IP地址是172.16.20.5。
+                      ① 主机A发出ARP请求，请求帧中的数据部分包括发送者MAC地址00-0C-04-18-19-aa、发送者IP地址172.16.20.20和目标MAC地址，这里全部填充0，
+					     因为它未知（这正是ARP要询问的），目标IP地址是172.16.20.5。
                       ② 在请求帧的帧头部分，目的MAC地址是广播地址，因此所有收到的站点（其中就包括主机B）都打开这个帧查看其数据部分的内容。
                       ③ 只有符合目标IP地址172.16.20.5的主机（主机B）回答这个ARP请求，其他站点则忽略这个请求。
                       ④ 主机B把自己的MAC地址写入“目标地址”字段中，送给主机A。
@@ -309,16 +310,18 @@ public class Inter {
                      return super.onInterceptTouchEvent(ev);
                  }
 				  
-				  // 2) 在onTouchEvent 执行真正的操作
+				  // 2) 在onTouchEvent 执行真正的操作，记住处理ACTION_CANCEL 处理方式一般与ACTION_UP相同
 				  
 				  public boolean onTouchEvent(MotionEvent event) {
                       switch (event.getAction()) {
                           case MotionEvent.ACTION_MOVE:
                                mXMove = event.getRawX();
                                int scrolledX = (int) (mXLastMove - mXMove);
+							   //控制左边界
                                if (getScrollX() + scrolledX < leftBorder) {
                                    scrollTo(leftBorder, 0);
                                    return true;
+							   //控制右边界
                                } else if (getScrollX() + getWidth() + scrolledX > rightBorder) {
                                     scrollTo(rightBorder - getWidth(), 0);
                                     return true;
@@ -326,6 +329,7 @@ public class Inter {
                                scrollBy(scrolledX, 0);
                                mXLastMove = mXMove;
                                break;
+						  case MotionEvent.ACTION_CANCEL:
                           case MotionEvent.ACTION_UP:
                                // 当手指抬起时，根据当前的滚动值来判定应该滚动到哪个子控件的界面
                                int targetIndex = (getScrollX() + getWidth() / 2) / getWidth();
@@ -346,12 +350,15 @@ public class Inter {
                      // 第三步，重写computeScroll()方法，并在其内部完成平滑滚动的逻辑
                       if (mScroller.computeScrollOffset()) {
                           scrollTo(mScroller.getCurrX(), mScroller.getCurrY());
+						  //一定要调用，否则容易出问题
                           invalidate();
                        }
                   }
 				 
 				 
 				 //整个View树的绘图流程是在ViewRootImpl类的performTraversals()方法
+				 
+				 //里面可以看到performMeasure performLayout 和 performDraw的方法
 				 
 				 
 			3   View的绘制
@@ -412,7 +419,7 @@ public class Inter {
                  height = desiredHeight;
                 }
 
-               //MUST CALL THIS
+               //MUST CALL THIS 必须调用
               setMeasuredDimension(width, height);
 
            // view group
@@ -449,7 +456,21 @@ public class Inter {
 
               3)  调用canvas.setBitmap 的方法，并调用canvas.drawbitmap 的方法
 
-
+                      mBitQQ = ((BitmapDrawable) getResources().getDrawable(R.drawable.qq)).getBitmap();  
+          
+						/* 创建屏幕大小的缓冲区 */  
+					  mSCBitmap=Bitmap.createBitmap(320, 480, Config.ARGB_8888);    
+          
+						/* 创建Canvas */  
+                      mCanvas = new Canvas();    
+          
+                       /* 设置将内容绘制在mSCBitmap上 */  
+					  mCanvas.setBitmap(mSCBitmap);   
+          
+                      mPaint = new Paint();  
+          
+                      /* 将mBitQQ绘制到mSCBitmap上 */  
+					  mCanvas.drawBitmap(mBitQQ, 0, 0, mPaint);
 
            6    为什么可以在子线程中更新UI
 
@@ -468,6 +489,8 @@ public class Inter {
 
             8   onMeasure 在遍历各个孩子的时候，需要调用measureChild 来获得孩子的宽度和高度。
 			
+			    onLayout 的方法里需要遍历各个孩子并调用view.layout()的方法来确定各个孩子的位置
+			
 			9   有意思的控件
                   TagLayout 几点误区
 
@@ -481,7 +504,7 @@ public class Inter {
                       排列做对比，然后确定换行；
                    4）当遍历到最后一个子试图，需要特殊处理//增加高度，或者变化高度
 
-               1  转盘  详细描述
+                1  转盘  详细描述
 
             10  各种touch Event 事件详解
 			  
@@ -528,13 +551,13 @@ public class Inter {
 						 
 					 • For each child view, in reverse order they were added
 					 
-						 • If touch is relevant (inside view),  child.dispatchTouchEvent()
+						 • If touch is relevant (inside view),  child.dispatchTouchEvent()    //2017-08-18 复习时 忘了这一步
 						 
-						 • If not handled by previous, dispatch to next view
+						 • If not handled by previous, dispatch to next view    //2017-08-18 复习时 忘了这一步
 						 
 					 • If no children handle event, listener gets a chance
 
-						  • OnTouchListener.onTouch()
+						  • OnTouchListener.onTouch()   //2017-08-18 复习时 忘了这一步
 						  
 					 • If no listener, or not handled
 					 
