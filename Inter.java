@@ -832,7 +832,8 @@ public class Inter {
 					 T3 销毁线程时间。如果：T1 + T3 远大于 T2，则可以采用线程池，以提高服务器性能。
 
 					 1）newFixedThreadPool 核心线程数，最大线程数，执行LinkedBlockingQueue 策略
-					   先进先出
+					    先进先出
+						
 					 2）newSingleThreadPool 核心线程数和最大核心数都只有一个，执行LinkedBlockingQueue;
 
 					 3) newCachedThreadPool 核心线程数0，最大线程数没有限制，任务执行完成后，60秒后会自动退出
@@ -842,11 +843,14 @@ public class Inter {
 
 					 5）shutdown 不再接受新任务，要等待所有任务执行完才关闭
 						 shutdownnow 不再接受新任务，并且试图停止正在执行的任务
+						 
 					 6）拒绝策略：
-						 ThreadPoolExecutor.AbortPolicy:丢弃任务并抛出RejectedExecutionException异常。
-						 ThreadPoolExecutor.DiscardPolicy：也是丢弃任务，但是不抛出异常。
-						 ThreadPoolExecutor.DiscardOldestPolicy：丢弃队列最前面的任务，然后重新尝试执行任务（重复此过程）
-						 ThreadPoolExecutor.CallerRunsPolicy：由调用线程处理该任务					  
+					 
+						 ThreadPoolExecutor.AbortPolicy:         
+						 丢弃任务并抛出RejectedExecutionException异常。
+						 ThreadPoolExecutor.DiscardPolicy：       也是丢弃任务，但是不抛出异常。
+						 ThreadPoolExecutor.DiscardOldestPolicy： 丢弃队列最前面的任务，然后重新尝试执行任务（重复此过程）
+						 ThreadPoolExecutor.CallerRunsPolicy：    由调用线程处理该任务					  
 			    
 				
               4  生产者，消费者模式
@@ -996,10 +1000,15 @@ public class Inter {
 					    volatile 作用线程可见性和防止指令重排序
 						
 						 什么是指令重排序？有两个层面：
-                       在虚拟机层面，为了尽可能减少内存操作速度远慢于CPU运行速度所带来的CPU空置的影响，虚拟机会按照自己的一些规则(这规则后面再叙述)将程序编写顺序打乱——即写在后面的代码在时间顺序上可能会先执行，而写在前面的代码会后执行——以尽可能充分地利用CPU。拿上面的例子来说：假如不是a=1的操作，而是a=new byte[1024*1024](分配1M空间)，那么它会运行地很慢，此时CPU是等待其执行结束呢，还是先执行下面那句flag= true呢？显然，先执行flag=true可以提前使用CPU，加快整体效率，当然这样的前提是不会产生错误(什么样的错误后面再说) 。虽然这里有两种情况：后面的代码先于前面的代码开始执行；前面的代码先开始执行，但当效率较慢的时候，后面的代码开始执行并先于前面的代码执 行结束。不管谁先开始，总之后面的代码在一些情况下存在先结束的可能。
-                        在硬件层面，CPU会将接收到的一批指令按照其规则重排序，同样是基于CPU速度比缓存速度快的原因，和上一点的目的类似，
-						只是硬件处理的话，每次只能在接收到的有限指令范围内重排序，而虚拟机可以在更大层面、更多指令范围内重排序。
-                        硬件的重排序机制参见《从JVM并发看CPU内存指令重排序(Memory Reordering)》  
+                          在虚拟机层面，为了尽可能减少内存操作速度远慢于CPU运行速度所带来的CPU空置的影响，虚拟机会按照自己的一些规则(这规则后面再叙述)将程序编写顺序打乱——
+					      即写在后面的代码在时间顺序上可能会先执行，而写在前面的代码会后执行——以尽可能充分地利用CPU。拿上面的例子来说：
+					      假如不是a=1的操作，而是a=new byte[1024*1024](分配1M空间)，那么它会运行地很慢，此时CPU是等待其执行结束呢，还是先执行下面那句flag= true呢？
+					      显然，先执行flag=true可以提前使用CPU，加快整体效率，当然这样的前提是不会产生错误(什么样的错误后面再说) 。虽然这里有两种情况：
+					      后面的代码先于前面的代码开始执行；前面的代码先开始执行，但当效率较慢的时候，后面的代码开始执行并先于前面的代码执 行结束。不管谁先开始，
+					      总之后面的代码在一些情况下存在先结束的可能。
+                          在硬件层面，CPU会将接收到的一批指令按照其规则重排序，同样是基于CPU速度比缓存速度快的原因，和上一点的目的类似，
+						  只是硬件处理的话，每次只能在接收到的有限指令范围内重排序，而虚拟机可以在更大层面、更多指令范围内重排序。
+                          硬件的重排序机制参见《从JVM并发看CPU内存指令重排序(Memory Reordering)》  
 						
 						 比较：
 
@@ -1027,7 +1036,8 @@ public class Inter {
                          关于ABA问题参考文档: http://blog.hesey.NET/2011/09/resolve-aba-by-atomicstampedreference.html 
 
                        2. 循环时间长开销大。自旋CAS如果长时间不成功，会给CPU带来非常大的执行开销。如果JVM能支持
-                          处理器提供的pause指令那么效率会有一定的提升，pause指令有两个作用，第一它可以延迟流水线执行指令（de-pipeline）,使CPU不会消耗过多的执行资源，延迟的时间取决于具体实现的版本，在一些处理器上延迟时间是零。
+                          处理器提供的pause指令那么效率会有一定的提升，pause指令有两个作用，第一它可以延迟流水线执行指令（de-pipeline）,
+						  使CPU不会消耗过多的执行资源，延迟的时间取决于具体实现的版本，在一些处理器上延迟时间是零。
                           第二它可以避免在退出循环的时候因内存顺序冲突（memory order violation）
                           而引起CPU流水线被清空（CPU pipeline flush），从而提高CPU的执行效率。
  
@@ -1039,8 +1049,10 @@ public class Inter {
 				     
                  11 同步器AQS的实现原理
 				 
-				     1） 一个抽象类，内部是一个先进先出的队列（CLH队列，自旋锁的队列，有点空间复杂度低），用双向链表实现，子类必须重写tryRelease和 tryAcquire    
-					     的方法来自定义锁的操作，这个类有三个比较重要的变量head 表示当前持有锁的线程。tail 队尾等待的线程，state 表示锁状态（其实不同的状态下有不同的语义），state等于0表示目前锁可用，state=1 表示该锁被占用了一次，2 表示两次，以此类推，在AQS内部基于CAS对其进行更新。
+				     1） 一个抽象类，内部是一个先进先出的队列（CLH队列，自旋锁的队列，有点空间复杂度低），用双向链表实现，
+					     子类必须重写tryRelease和 tryAcquire 的方法来自定义锁的操作，这个类有三个比较重要的变量head 表示
+						 当前持有锁的线程。tail 队尾等待的线程，state 表示锁状态（其实不同的状态下有不同的语义），如ReentrantLock
+						 state等于0表示目前锁可用，state=1 表示该锁被占用了一次，2 表示两次，以此类推，在AQS内部基于CAS对其进行更新。
 						 
                  12  独占锁、共享锁；可重入的独占锁ReentrantLock、共享锁 实现原理
 				 
@@ -1079,7 +1091,8 @@ public class Inter {
 				     类似于wait 和 notify的功能，jdk1.5 提供了LockSupport.park() 和 LockSupport.unpark() 的本地方法实现，实现线程的阻塞和唤醒
 					 
                  16 Condition接口及其实现原理
-				     Condition 是个接口类，主要用于线程的等待和执行操作，包含wait cancel signal 注意不包含（lock 和 unlock 方法，那是属于lock的接口）的方法，主要实现原理是内部维护了一个等待线程的队列，当调用lock 方法时，
+				     Condition 是个接口类，主要用于线程的等待和执行操作，包含wait cancel signal 注意不包含（lock 和 unlock 方法，那是属于lock的接口）的方法，
+					 主要实现原理是内部维护了一个等待线程的队列，当调用lock 方法时，
 					 会在内部的等待队列新增一个节点，当调用signal 的方法时，将这个节点转移到同步的队列的队尾
 					 
                  17 HashMap、HashSet、ArrayList、LinkedList、HashTable、ConcurrentHashMap、TreeMap的实现原理
@@ -1432,8 +1445,12 @@ public class Inter {
 			（3）用户态，运行于用户空间。
 
 			上下文context： 上下文简单说来就是一个环境。
-			用户空间的应用程序，通过系统调用，进入内核空间。这个时候用户空间的进程要传递 很多变量、参数的值给内核，内核态运行的时候也要保存用户进程的一些寄存 器值、变量等。所谓的“进程上下文”，可以看作是用户进程传递给内核的这些参数以及内核要保存的那一整套的变量和寄存器值和当时的环境等。
-			相对于进程而言，就是进程执行时的环境。具体来说就是各个变量和数据，包括所有的寄存器变量、进程打开的文件、内存信息等。一个进程的上下文可以分为三个部分:用户级上下文、寄存器上下文以及系统级上下文。
+			用户空间的应用程序，通过系统调用，进入内核空间。这个时候用户空间的进程要传递 很多变量、参数的值给内核，
+			内核态运行的时候也要保存用户进程的一些寄存 器值、变量等。所谓的“进程上下文”，可以看作是用户进程传递给
+			内核的这些参数以及内核要保存的那一整套的变量和寄存器值和当时的环境等。
+			相对于进程而言，就是进程执行时的环境。具体来说就是各个变量和数据，包括
+			所有的寄存器变量、进程打开的文件、内存信息等。一个进程的上下文可以分为三个部分:
+			用户级上下文、寄存器上下文以及系统级上下文。
 
 			 （1）用户级上下文: 正文、数据、用户堆栈以及共享存储区；
 			 （2）寄存器上下文: 通用寄存器、程序寄存器(IP)、处理器状态寄存器(EFLAGS)、栈指针(ESP)；
@@ -1591,7 +1608,11 @@ public class Inter {
 
               ViewRoot是View和WindowManager之间的桥梁，真正把View传递给WindowManager的是通过ViewRoot的setView()方法，
 
-               ViewRoot实现了View和WindowManager之间的消息传递。
+              ViewRoot实现了View和WindowManager之间的消息传递,WindowManager 继承ViewManager 用于管理View,有以下方法。
+			  
+			  public void addView(View view, ViewGroup.LayoutParams params);
+			  public void updateViewLayout(View view, ViewGroup.LayoutParams params);
+			  public void removeView(View view);
 			   
 			   
 			 
@@ -1687,11 +1708,13 @@ public class Inter {
 				   		
              14  Android 沙盒机制
 		 
-				  Android provides layer of protection in that it doesn’t give one app access to the resource of another app. This is known as the ‘sandbox’ where every 
-				  app gets to play in its own sandbox and can’t use another app’s toys! Android does this by giving each app a unique user id (a UID) and by running that 
-				  app as a separate process with that UID. Only processes with the same UIDs can share resources which, as each ID is uniquely assigned, 
-				  means that no other apps have permission.
-				  This means that if an app tries to do something it shouldn’t, like read the data from another app, or dial the phone (which is a separate application) 
+				  Android provides layer of protection in that it doesn’t give one app access to the resource of another app. 
+				  This is known as the ‘sandbox’ where every app gets to play in its own sandbox and can’t use another app’s toys! 
+				  Android does this by giving each app a unique user id (a UID) and by running that 
+				  app as a separate process with that UID. Only processes with the same UIDs can share resources which, 
+				  as each ID is uniquely assigned, means that no other apps have permission.
+				  This means that if an app tries to do something it shouldn’t, like read the data from another app, 
+				  or dial the phone (which is a separate application) 
 				  then Android protects against this because the app doesn’t have the right privileges.
 				  
 				  
@@ -1720,7 +1743,7 @@ public class Inter {
 				    字段表示操作节点,再把op插入到一个双向链表里，
 					
 					 4）然后commit, commit 会执行BackStackRecord 的run方法， run方法里面，调用
-				     moveToState，该方法内会根据操作的类型，以及Fragment 当前的状态执行相应生命周期的方法，当state 是Initializing 的是偶
+				     moveToState，该方法内会根据操作的类型，以及Fragment 当前的状态执行相应生命周期的方法，当state 是Initializing 的话
 					 就会执行fragment 的onAttach 和 onCreate 的方法
 					 
 		    17   Js 与 Android交互 方式有两种
@@ -1748,37 +1771,47 @@ public class Inter {
               2  注解Retention的种类：
 			  
 				 Source 只保留在源码中 编译会被忽视 比如我们通常用的deprecated 还有 surpressing warning
-				 CLAss, 只保存在字节码文件中，不会在VM中运营，比如butternife 中的 注解
+				 CLAss, 只保存在字节码文件中，不会在VM中运行，比如butternife 中的 注解
 				 runtime,保存到运行时，比如retrofit 的POST,GET
 
 			  3  类的加载机制
 		 
 			      1、Bootstrap Loader（启动类加载器）：加载System.getProperty("sun.boot.class.path")所指定的路径或jar。
-                  2、Extended Loader（标准扩展类加载器ExtClassLoader）：加载System.getProperty("java.ext.dirs")所指定的路径或jar。在使用Java运行程序时，也可以指定其搜索路径，例如：java -Djava.ext.dirs=d:\projects\testproj\classes HelloWorld
+                  2、Extended Loader（标准扩展类加载器ExtClassLoader）：加载System.getProperty("java.ext.dirs")所指定的路径或jar。
+				     在使用Java运行程序时，也可以指定其搜索路径，例如：java -Djava.ext.dirs=d:\projects\testproj\classes HelloWorld
 				
 				  1、命令行启动应用时候由JVM初始化加载
                   2、通过Class.forName()方法动态加载
                   3、通过ClassLoader.loadClass()方法动态加载
-                  4、同一个ClassLoader加载的类文件，只有一个Class实例。但是，如果同一个类文件被不同的ClassLoader载入，则会有两份不同的ClassLoader实例（前提是着       两个类加载器不能用相同的父类加载器）
+                  4、同一个ClassLoader加载的类文件，只有一个Class实例。但是，如果同一个类文件被不同的ClassLoader载入，则会有两份不同的
+				     ClassLoader实例（前提是着两个类加载器不能用相同的父类加载器）
 				  5 自定义加载器要重写findclass
  
-                  3、AppClass Loader（系统类加载器AppClassLoader）：加载System.getProperty("java.class.path")所指定的路径或jar。在使用Java运行程序时，也可以加上-cp来覆盖原有的Classpath设置，例如： java -cp ./lavasoft/classes HelloWorld
+                  3、AppClass Loader（系统类加载器AppClassLoader）：加载System.getProperty("java.class.path")所指定的路径或jar。
+				  在使用Java运行程序时，也可以加上-cp来覆盖原有的Classpath设置，例如： java -cp ./lavasoft/classes HelloWorld
 		     
 			  4   双亲委托机制以及原因
-				    双亲委托模型的工作过程是：如果一个类加载器收到了类加载的请求，它首先不会自己去尝试加载这个类，而是把这个请求委托给父类加载器去完成，每一个层次的类加载器都是如此，因此所有的加载请求最终都应该传送到顶层的启动类加载器中，只有当父类加载器反馈自己无法完成这个加载请求（它的搜索范围中没有找到所需要加载的类）时，子加载器才会尝试自己去加载
+			  
+				    双亲委托模型的工作过程是：如果一个类加载器收到了类加载的请求，它首先不会自己去尝试加载这个类，而是把这个请求委托给
+					父类加载器去完成，每一个层次的类加载器都是如此，因此所有的加载请求最终都应该传送到顶层的启动类加载器中，
+					只有当父类加载器反馈自己无法完成这个加载请求（它的搜索范围中没有找到所需要加载的类）时，子加载器才会尝试自己去加载
+					使用双亲委托机制的好处是：能够有效确保一个类的全局唯一性，当程序中出现多个限定名相同的类时，类加载器在执行加载时，
+					始终只会加载其中的某一个类。
 					
-					使用双亲委托机制的好处是：能够有效确保一个类的全局唯一性，当程序中出现多个限定名相同的类时，类加载器在执行加载时，始终只会加载其中的某一个类。
-
-                     使用双亲委托模型来组织类加载器之间的关系，有一个显而易见的好处就是Java类随着它的类加载器一起具备了一种带有优先级的层次关系。例如类java.lang.Object，它存放在rt.jar之中，无论哪一个类加载器要加载这个类，最终都是委托给处于模型最顶端的启动类加载器进行加载，因此Object类在程序的各种加载器环境中都是同一个类。相反，如果没有使用双亲委托模型，由各个类加载器自行去加载的话，如果用户自己编写了一个称为java.lang.Object的类，并放在程序的ClassPath中，那系统中将会出现多个不同的Object类，Java类型体系中最基础的行为也就无法保证，应用程序也将会变得一片混乱。
-					 双亲机制是为了保证java核心库的类型安全，不会出现用户自己能定义java.lang.Object类的情况。
+					使用双亲委托模型来组织类加载器之间的关系，有一个显而易见的好处就是Java类随着它的类加载器一起具备了一种带有优先级的层次关系。
+					例如类java.lang.Object，它存放在rt.jar之中，无论哪一个类加载器要加载这个类，最终都是委托给处于模型最顶端的启动类加载器进行加载，
+					因此Object类在程序的各种加载器环境中都是同一个类。相反，如果没有使用双亲委托模型，由各个类加载器自行去加载的话，
+					如果用户自己编写了一个称为java.lang.Object的类，并放在程序的ClassPath中，那系统中将会出现多个不同的Object类，
+					Java类型体系中最基础的行为也就无法保证，应用程序也将会变得一片混乱。
+					双亲机制是为了保证java核心库的类型安全，不会出现用户自己能定义java.lang.Object类的情况。
 					
 			   5  类的初始化顺序
 				  
 				    属性、方法、构造方法和自由块都是类中的成员，在创建类的对象时，类中各成员的执行顺序：
-                      1. 父类静态成员和静态初始化快，按在代码中出现的顺序依次执行。
+                      1. 父类静态成员和静态初始化快，按在代码中出现的顺序依次执行。 // 2018-8-18复习出现概念性错误，以为成员和块不是同时实例化
                       2. 子类静态成员和静态初始化块，按在代码中出现的顺序依次执行。
                       3. 父类的实例成员和实例初始化块，按在代码中出现的顺序依次执行。
-                      4. 执行父类的构造方法。
+                      4. 执行父类的构造方法。                                       // 成员变量会和构造函数一块执行
                       5. 子类实例成员和实例初始化块，按在代码中出现的顺序依次执行。
                       6. 执行子类的构造方法。
 					   
@@ -1824,7 +1857,8 @@ public class Inter {
 
                     2)JVM栈(JVM Stack)
                        JVM栈是线程私有的，每个线程创建的同时都会创建JVM栈，JVM栈中存放的为当前线程中局部基本类型的变量（java
-					   中定义的八种基本类型：boolean、char、byte、short、int、long、float、double）、部分的返回结果以及Stack Frame，非基本类型的对象在JVM栈上仅存放一个指向堆上的地址
+					   中定义的八种基本类型：boolean、char、byte、short、int、long、float、double）、部分的返回结果以及Stack Frame，
+					   非基本类型的对象在JVM栈上仅存放一个指向堆上的地址
 
                     3)堆(heap)
  
@@ -1953,7 +1987,8 @@ public class Inter {
                              部类能够使用的参数设定为必须是final来规避这种莫名其妙错误的存在。”
 							 
 						9   For循环实现原理
-							 
+							
+							其实内部是Iterator 实现的，编译成字节码的时候， for 循环和 Iterator 字节码是一样的
 							 
 			七, 设计模式
 			
