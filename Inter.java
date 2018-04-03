@@ -2070,11 +2070,113 @@ public class Inter {
               2  MVP的精髓就是 多出一个presenter 类，表示用户执行的操作， 在Activity或fragment进行交互时，不直接操作他们当中的视图
 
                   而是抽象出一个接口，直接与抽象接口进行交互，不用去管具体的实现，activity 或者fragment 需要去实现这个抽象类。
+				  
+	     八： NDK的调试总结
+		 
+		 
+		 
+		      1） 一般我们会拿到如下的报错日志：
+			  
+			   I/DEBUG   (   31): *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+
+               I/DEBUG   (   31): Build fingerprint: 'Meizu/meizu_PRO7H_CN/PRO7H:7.0/NRD90M/1513563377:user/release-keys'
+ 
+               I/DEBUG   (   31): Revision: '0' ABI: 'arm' pid: 29870, tid: 29967, name: Thread-31  >>> com.yeahka.mach.android.openpos <<<
+
+               I/DEBUG   (   31): signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x1400008   
+
+               I/DEBUG   (   31): r0 0eefe56a  r1 de085ad0  r2 00000005  r3 000020fd
+ 
+               I/DEBUG   (   31): r4 fffffff8  r5 c74f9607  r6 01400004  r7 c74f9748    
+ 
+               I/DEBUG   (   31): r8 c74f9870  r9 c7b86700  sl 00000000  fp c74f97fc   
+
+               I/DEBUG   (   31): ip c44738d0  sp c74f95c0  lr ea8d873a  pc e78101a0  cpsr 600b0030
+
+               I/DEBUG   (   31): backtrace:
+
+               I/DEBUG   (   31): #00 pc 0000b1a0  /data/app/com.yeahka.mach.android.openpos-1/lib/arm/liblepos.so (Java_com_yeahka_android_lepos_Device_nativeFunction68+51)
+
+               I/DEBUG   (   31): #01 pc 00e9b783  /data/app/com.yeahka.mach.android.openpos-1/oat/arm/base.odex (offset 0xdfa000)
+			   
+			 
+			 2） 调用如下命令 可以找到具体报错代码的行数：
+			 
+			     方法一：
+			 
+			     addr2line -f -e  D:\TestProjects\ShuabaoV2.3.0(013)_JniTest\Shuabao\build\intermediates\ndkBuild\shuabao\release\obj\local\armeabi\liblepos.so 0000b1a0
+				 
+				 一个个解释上面的含义：
+				 
+				 addr2line: 是ndk toolchain 底下的一个工具：一般路径是在toolchains\arm-linux-androideabi-4.9\prebuilt\windows-x86_64\bin 下面 作用是把指令地址转为代码中的某一行
+				 
+				 -f:  表示的是文件
+				 
+				 -e:  未知
+				 
+				 D:\TestProjects\ShuabaoV2.3.0(013)_JniTest\Shuabao\build\intermediates\ndkBuild\shuabao\release\obj\local\armeabi\liblepos.so： 代表的是你编译的.so 库所在的路径
+				 
+				 0000b1a0：表示的是指令的 地址  可以从以上的报错日志 backtrace: 以后的信息获得， pc 开头的是指令的地址
+				 
+				 执行以上命令以后  会得到如下的结果：
+				 
+				 Java_com_yeahka_android_lepos_Device_nativeFunction68
+                 
+				 D:/TestProjects/ShuabaoV2.3.0(013)_JniTest/Shuabao/src/main/jni/lepos.c:1000
+				 
+				 
+				 Java_com_yeahka_android_lepos_Device_nativeFunction68： 代表的是 某个具体方法
+				 
+				 D:/TestProjects/ShuabaoV2.3.0(013)_JniTest/Shuabao/src/main/jni/lepos.c:1000： 1000 是源文件报错的行数
+				 
+				 
+				 方法二：
+				 
+				 ndk-stack -sym  D:\TestProjects\ShuabaoV2.3.0(013)_JniTest\Shuabao\build\intermediates\ndkBuild\shuabao\release\obj\local\armeabi -dump D:\TestProjects\ShuabaoV2.3.0(013)_JniTest\Shuabao\logcat.txt
+				 
+				 ndk-stack: 找出方法调用栈的工具 一般在ndk 的目录下 和ndk-build 同级  
+				 
+				 -sym: 表示符号  找出编译以后 符号表内所对应的符号
+				 
+				 D:\TestProjects\ShuabaoV2.3.0(013)_JniTest\Shuabao\build\intermediates\ndkBuild\shuabao\release\obj\local\armeabi： 符号表所对应的目录 和 cpu 架构有关：
+				 
+				 -dump: 理解成导出代码快照  snapshot
+				 
+				 D:\TestProjects\ShuabaoV2.3.0(013)_JniTest\Shuabao\logcat.txt:  报错日志的目录， 把上面的日志考到一个文本文件里，目录传进来，此处有一点需要注意，报错日志要包含
+				 
+				  *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***， 不然系统可能识别不了
+				 
+				 
+				 执行以上方法后  会得到如下结果：
+				 
+				 ********** Crash dump: **********
+				 
+                 Build fingerprint: 'Meizu/meizu_PRO7H_CN/PRO7H:7.0/NRD90M/1513563377:user/release-keys'
+				 
+                 pid: 29870, tid: 29967, name: Thread-31  >>> com.yeahka.mach.android.openpos <<<
+				 
+                 signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x1400008
+				 
+                 Stack frame  I/DEBUG   (   31): #00 pc 0000b1a0  /data/app/com.yeahka.mach.android.openpos-1/lib/arm/liblepos.so (Java_com_yeahka_android_lepos_Device_nativeFunction68+51): 
+				 
+				 Routine Java_com_yeahka_android_lepos_Device_nativeFunction68 at D:/TestProjects/ShuabaoV2.3.0(013)_JniTest/Shuabao/src/main/jni/lepos.c:1000
+
+				 Stack frame  I/DEBUG   (   31): #01 pc 00e9b783  /data/app/com.yeahka.mach.android.openpos-1/oat/arm/base.odex (offset 0xdfa000)；
+				 
+				 
+				 从以上可以看到调用栈帧， 信息和方法一差不多
+
+				 
+				参考： https://stackoverflow.com/questions/17840521/android-fatal-signal-11-sigsegv-at-0x636f7d89-code-1-how-can-it-be-tracked
+
+				 
+			   
+			
+		      
 			
 			     
 
-				 
-        遗留问题
+		遗留问题
 
 			// 1   心跳机制的了解
 
