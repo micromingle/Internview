@@ -71,6 +71,8 @@ public class Inter {
              2) 客户端随机产生秘钥，用公钥加密 产生的秘钥，发送给服务端
              3) 服务端用私钥解密，得出秘钥，用得出的秘钥进行加密信息，进行传输
 			 
+			
+			 
 		 3  开源框架介绍Retrofit2 介绍
 			  一： Retrofit 组成部分，使用先定义一个接口
 			  1) 注解部分 包含请求方法如POST,GET,查询参数 QUERY  请求头HEADERS
@@ -263,7 +265,81 @@ public class Inter {
 						综合以上两种情况，主机A的完整操作过程如下：
                         主机A首先比较目的IP地址与自己的IP地址是否在同一子网中，如果在同一子网，则向本网发送ARP广播，
 						获得目标IP所对应的MAC地址；如果不在同一子网，就通过ARP询问默认网关对应的MAC地址。
+				
+				4    Http1.0、Spdy和Http2.0的对比 
+				
+				  1） Http 1.1 和Http1.0 区别：
+
+                    1、缓存处理，在HTTP1.0中主要使用header里的If-Modified-Since,Expires来做为缓存判断的标准，HTTP1.1则引入了更多的缓存控制策略例如Entity tag，If-Unmodified-Since, 
+				      If-Match, If-None-Match等更多可供选择的缓存头来控制缓存策略。
+
+                    2、带宽优化及网络连接的使用，HTTP1.0中，存在一些浪费带宽的现象，例如客户端只是需要某个对象的一部分，而服务器却将整个对象送过来了，并且不支持断点续传功能，
+				      HTTP1.1则在请求头引入了range头域，它允许只请求资源的某个部分，即返回码是206（Partial Content），这样就方便了开发者自由的选择以便于充分利用带宽和连接。
+
+                    3、错误通知的管理，在HTTP1.1中新增了24个错误状态响应码，如409（Conflict）表示请求的资源与资源的当前状态发生冲突；410（Gone）表示服务器上的某个资源被永久性的删除。
+
+                    4、Host头处理，在HTTP1.0中认为每台服务器都绑定一个唯一的IP地址，因此，请求消息中的URL并没有传递主机名（hostname）。但随着虚拟主机技术的发展，在一台物理服务
+				      器上可以存在多个虚拟主机（Multi-homed Web Servers），并且它们共享一个IP地址。HTTP1.1的请求消息和响应消息都应支持Host头域，
+					  且请求消息中如果没有Host头域会报告一个错误（400 Bad Request）。
+
+                    5、长连接，HTTP 1.1支持长连接（PersistentConnection）和请求的流水线（Pipelining）处理，在一个TCP连接上可以传送多个HTTP请求和响应，
+				     减少了建立和关闭连接的消耗和延迟，在HTTP1.1中默认开启Connection： keep-alive，一定程度上弥补了HTTP1.0每次请求都要创建连接的缺点。
+					 
+			      2） HTTP1.0和1.1现存的一些问题
+				  
+				     1、上面提到过的，HTTP1.x在传输数据时，每次都需要重新建立连接，无疑增加了大量的延迟时间，特别是在移动端更为突出。
+
+                     2、HTTP1.x在传输数据时，所有传输的内容都是明文，客户端和服务器端都无法验证对方的身份，这在一定程度上无法保证数据的安全性。
+
+                     3、HTTP1.x在使用时，header里携带的内容过大，在一定程度上增加了传输的成本，并且每次请求header基本不怎么变化，尤其在移动端增加用户流量。
+
+                     4、虽然HTTP1.x支持了keep-alive，来弥补多次创建连接产生的延迟，但是keep-alive使用多了同样会给服务端带来大量的性能压力，并且对于单个文件被不
+					 
+					    断请求的服务(例如图片存放网站)，keep-alive可能会极大的影响性能，因为它在文件被请求之后还保持了不必要的连接很长时间。
+				  
+				  3） HTTPS与HTTP的一些区别
+					
+					 1、HTTPS协议需要到CA申请证书，一般免费证书很少，需要交费。
+
+                     2、HTTP协议运行在TCP之上，所有传输的内容都是明文，HTTPS运行在SSL/TLS之上，SSL/TLS运行在TCP之上，所有传输的内容都经过加密的。
+
+                     3、HTTP和HTTPS使用的是完全不同的连接方式，用的端口也不一样，前者是80，后者是443。
+
+                     4、HTTPS可以有效的防止运营商劫持，解决了防劫持的一个大问题。
+					 
+				  5）SPDY 相对于 HTTPS和HTTP两者优点于一体的传输协议，主要解决：
+
+                     1、降低延迟，针对HTTP高延迟的问题，SPDY优雅的采取了多路复用（multiplexing）。多路复用通过多个请求stream共享一个tcp连接的方式，解决了HOL blocking的问题，降低了延迟同时提高了带宽的利用率。
+
+                     2、请求优先级（request prioritization）。多路复用带来一个新的问题是，在连接共享的基础之上有可能会导致关键请求被阻塞。SPDY允许给每个request设置优先级，这样重要的请求就会优先得到响应。
+					     比如浏览器加载首页，首页的html内容应该优先展示，之后才是各种静态资源文件，脚本文件等加载，这样可以保证用户能第一时间看到网页内容。
+
+                     3、header压缩。前面提到HTTP1.x的header很多时候都是重复多余的。选择合适的压缩算法可以减小包的大小和数量。
+
+                     4、基于HTTPS的加密协议传输，大大提高了传输数据的可靠性。
+
+                     5、服务端推送（server push），采用了SPDY的网页，例如我的网页有一个sytle.css的请求，在客户端收到sytle.css数据的同时，服务端会将sytle.js的文件推送给客户端，
+					 
+					    当客户端再次尝试获取sytle.js时就可以直接从缓存中获取到，不用再发请求了。
+				  
+				  6）SPDY和Http2.0 大体相同 主要以下区别
+				  
+				     1）新的二进制格式（Binary Format）
+
+                        HTTP1.x的解析是基于文本。基于文本协议的格式解析存在天然缺陷，文本的表现形式有多样性，要做到健壮性考虑的场景必然很多，二进制则不同，
+						只认0和1的组合。基于这种考虑HTTP2.0的协议解析决定采用二进制格式，实现方便且健壮。
 						
+				     2） 允许明文传输
+					 
+					 
+				   7）Http SPDY Https TSL TCP 运行的层数
+				   
+				      Http  
+					  SPDY
+					  SSL/TSL
+					  TCP
+					 
+				
 			 
 		 二 自定义view 类
 		 
@@ -1389,13 +1465,76 @@ public class Inter {
 				    最大线程数 核心数的2倍加一，存活时间30秒；
 				    排队策略：LInkedBlockQUeue,最多128个等待线程
 				    线程池当前版本串行，串行--》并发---》串行
-				    默认线程池 SERIAL_EXECUTOR一个进程只有一个
+				    默认线程池 SERIAL_EXECUTOR 一个进程只有一个
 				    Callable 接口返回泛型，mWOkerThread 就是继承Callable;
 				    FutureTask 真正的工作类，用于包装Callable, 实现Runnable,和Future类，Future 类定义了多个函数
 				    一般用于线程是否执行完，cancel,get 执行结果
 					
-				   
-				   
+					SERIAL_EXECUTOR  用于排队；队列 入队offer  出队poll;
+					THREAD_POOL_EXECUTOR 用于执行任务
+					
+					各个版本的区别：
+					
+					 对于AsyncTask的在不同版本之间的差异不得不提一下。在Android1.6，AsyncTask采用的是串行执行任务，
+					 在Android1.6的时候采用线程池处理并行任务，而在3.0以后才通过SerialExecutor线程池串行处理任务。
+					 在Android4.1之前AsyncTask类必须在主线程中，但是在之后的版本中就被系统自动完成。
+					 而在Android5.0的版本中会在ActivityThread的main方法中执行AsyncTask的init方法，而在Android6.0中又将init方法删除。
+					
+				 25  AsynckTask 源码自己的理解：
+				 
+				     核心类：WorkerRunnable ;工作线程 实现Callable 接口主要任务在这边的call方法处理
+					         
+							 FutureTask :实现Future，和RunnableFutrue,实现runnable 的run方法，在这个run方法里执行Callable 的call 方法；
+							 
+							 SERIAL_EXECUTOR: 用于任务的排队，当执行excute 方法时，将任务塞进队列 用于排队的类是ArrayDeque;
+							 
+							 THREAD_POOL_EXECUTOR： 用于任务的执行 ，核心线程数：根据CPU核心数，至少两个，最多四个，最好可以比cpu核心数少1，以免占满cpu
+				                                           最大线程数 核心数的2倍加一，存活时间30秒；
+				                                     排队策略：LInkedBlockQUeue,最多128个等待线程
+													 
+						     当new AsyncTask 的时候 WorkRunnable 会实例化  ， FutureTask 会实例化mFutureTask，并把workrunnable 作为实例传进来
+							 
+							 当执行excute()的方法的时候 会调用executeOnExcutor的方法,此时调用OnPreExecute 其实执行的是 SerialExecutor 的execute的方法
+							 
+							 以下是该类的实现  表明了整个流程：
+							 
+							 private static class SerialExecutor implements Executor {
+                                 final ArrayDeque<Runnable> mTasks = new ArrayDeque<Runnable>();
+                                    Runnable mActive;
+
+                               public synchronized void execute(final Runnable r) {
+                                      mTasks.offer(new Runnable() {
+                                     public void run() {
+                                     try {
+                                           r.run();
+                                      } finally {
+                                            scheduleNext();
+                                         }
+                                }
+                               });
+                               if (mActive == null) {
+                                    scheduleNext();
+                                }
+                              }
+
+                             protected synchronized void scheduleNext() {
+                                if ((mActive = mTasks.poll()) != null) {
+                                   THREAD_POOL_EXECUTOR.execute(mActive);
+                              }
+                            }
+    
+						    
+							1  先排队 排队的时候new一个线程 然后执行runnable（这个run方法其实是FutureTask的run方法） 的run方法 --》如果没有任务在执行，从队列中取出到THREAD_POOL_EXECUTOR执行，
+							
+							   每条线程执行完以后 会finally 一下scheduleNext 执行下一条任务， 执行顺序是FutureTask.run  --> WorkRunnable.call -->  执行doInbackground方法 此时内部自己实现 publishProgress方法
+						        --》执行完成后，通过handler 发送出来---》onPostExecute 方法；
+							
+							  
+							 
+							 
+							 
+							
+					
 		 四 操作系统类
 		 
 		    
@@ -1946,17 +2085,19 @@ public class Inter {
 				  
 				 8  java 内部类
 				   
-				     1） 使用匿名内部类的好处
+				      1） 使用匿名内部类的好处
 					     
 						  1 内部类方法可以访问该类定义所在作用域的数据，包括私有数据
 						  2 内部类对同一个包的其他类隐藏起来
 						  3 使用匿名内部类定义回调函数节省代码
 						  
+						  
 				      2） 静态内部类和非静态内部类的区别
 					  
 					      非静态内部类持有外部类的一个饮用，而静态的没有
+						  
 					  
-					   3） 匿名内部类的变量为什么要是final 的
+					  3） 匿名内部类的变量为什么要是final 的
 					   
 					        本人比较如同的解释：
                             “这是一个编译器设计的问题，如果你了解java的编译原理的话很容易理解。  
@@ -1986,10 +2127,64 @@ public class Inter {
                              这就让人非常的难以理解和接受，为了避免这种尴尬的问题存在，所以编译器设计人员把内
                              部类能够使用的参数设定为必须是final来规避这种莫名其妙错误的存在。”
 							 
-						9   For循环实现原理
+						4）   For循环实现原理
 							
 							其实内部是Iterator 实现的，编译成字节码的时候， for 循环和 Iterator 字节码是一样的
-							 
+							
+				  9   Java 内存模型
+				  
+				       Java内存模型即Java Memory Model，简称JMM。JMM定义了Java 虚拟机(JVM)在计算机内存(RAM)中的工作方式。
+					   
+					   Java内存模型定义了多线程之间共享变量的可见性以及如何在需要的时候对共享变量进行同步。
+					   
+					   关于并发编程:
+                       
+					   在并发编程领域，有两个关键问题：线程之间的通信和同步。
+					   
+					   线程之间的通信:
+					   
+                       线程的通信是指线程之间以何种机制来交换信息。在命令式编程中，线程之间的通信机制有两种共享内存和消息传递。
+
+                       在共享内存的并发模型里，线程之间共享程序的公共状态，线程之间通过写-读内存中的公共状态来隐式进行通信，典型的共享内存通信方式就是通过共享对象进行通信。
+
+                       在消息传递的并发模型里，线程之间没有公共状态，线程之间必须通过明确的发送消息来显式进行通信，在java中典型的消息传递方式就是wait()和notify()。
+					   
+					   线程之间的同步:
+                       
+					   同步是指程序用于控制不同线程之间操作发生相对顺序的机制。
+
+                       在共享内存并发模型里，同步是显式进行的。程序员必须显式指定某个方法或某段代码需要在线程之间互斥执行。
+
+                       在消息传递的并发模型里，由于消息的发送必须在消息的接收之前，因此同步是隐式进行的。
+					   
+					   Java内存模型:
+					   
+					   JMM决定一个线程对共享变量的写入何时对另一个线程可见。从抽象的角度来看，JMM定义了线程和主内存之间的抽象关系：
+					   
+					   线程之间的共享变量存储在主内存（main memory）中，每个线程都有一个私有的本地内存（local memory），
+					   
+					   本地内存中存储了该线程以读/写共享变量的副本。
+					   
+				  
+				  
+				  10  大端和小端
+				  
+				      大端——高尾端， 小端——低尾端
+					  
+					  以11 22 33 44 为例：
+					  
+					  高尾端存储顺序：
+					  
+					        11 22 33 44    // 地址递增顺序  低----》高
+						
+                      低尾端存储顺序：
+
+                            44 33 22 11	   // 地址递增顺序  高《----低		
+
+                  							
+					  
+                      
+                      					  
 			七, 设计模式
 			
 			     1 动态代理
@@ -2168,9 +2363,43 @@ public class Inter {
 
 				 
 				参考： https://stackoverflow.com/questions/17840521/android-fatal-signal-11-sigsegv-at-0x636f7d89-code-1-how-can-it-be-tracked
+				
+				       https://mp.weixin.qq.com/s?__biz=MjM5MjAwODM4MA==&mid=203534700&idx=1&sn=21389e203c374b13b29d63bc9b69622c&scene=4
 
 				 
-			   
+	    九 Java中的容器：
+
+             1 HashMap和Hashtable的区别
+
+               1） 两者最主要的区别在于Hashtable是线程安全，而HashMap则非线程安全。Hashtable的实现方法里面都添加了synchronized关键字来确保线程同步，
+			       因此相对而言HashMap性能会高一些，我们平时使用时若无特殊需求建议使用HashMap	
+
+               2） HashMap可以使用null作为key，不过建议还是尽量避免这样使用。HashMap以null作为key时，总是存储在table数组的第一个节点上。而Hashtable则不允许null作为key。
+ 
+            
+               3） HashMap和Hashtable的底层实现都是数组+链表结构实现。
+                   
+			   4） 两者计算hash的方法不同：Hashtable计算hash是直接使用key的hashcode对table数组的长度直接进行取模：
+                   HashMap计算hash对key的hashcode进行了二次hash，以获得更好的散列值，然后对table数组长度取摸：
+
+               
+             2  ArrayList和LinkedList的实现原理
+
+               1、ArrayList和LinkedList可想从名字分析，它们一个是Array(动态数组)的数据结构，一个是Link(链表)的数据结构，此外，它们两个都是对List接口的实现。
+
+                  前者是数组队列，相当于动态数组；后者为双向链表结构，也可当作堆栈、队列、双端队列
+
+               2、当随机访问List时（get和set操作），ArrayList比LinkedList的效率更高，因为LinkedList是线性的数据存储方式，所以需要移动指针从前往后依次查找。
+
+               3、当对数据进行增加和删除的操作时(add和remove操作)，LinkedList比ArrayList的效率更高，因为ArrayList是数组，
+			      所以在其中进行增删操作时，会对操作点之后所有数据的下标索引造成影响，需要进行数据的移动。
+
+               4、从利用效率来看，ArrayList自由性较低，因为它需要手动的设置固定大小的容量，但是它的使用比较方便，只需要创建，然后添加数据，通过调用下标进行使用；
+			      而LinkedList自由性较高，能够动态的随数据量的变化而变化，但是它不便于使用。
+
+               5、ArrayList主要控件开销在于需要在lList列表预留一定空间；而LinkList主要控件开销在于需要存储结点信息以及结点指针信息。
+
+               6，LinkedList 还实现了队列和栈的实现方法			   
 			
 		      
 			
