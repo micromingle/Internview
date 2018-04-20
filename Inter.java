@@ -1944,6 +1944,113 @@ public class Inter {
 					Java类型体系中最基础的行为也就无法保证，应用程序也将会变得一片混乱。
 					双亲机制是为了保证java核心库的类型安全，不会出现用户自己能定义java.lang.Object类的情况。
 					
+				    在JVM中表示两个class对象是否为同一个类对象存在两个必要条件
+
+                    类的完整类名必须一致，包括包名，加载这个类的ClassLoader(指ClassLoader实例对象)必须相同。
+					
+			  4   实现自己的类加载方法，主要要注意以下几个重要方法：
+			  
+			       1) loadClass(): 
+			  
+			       该方法加载指定名称（包括包名）的二进制类型，该方法在JDK1.2之后不再建议用户重写但用户可以直接调用该方法，loadClass()方法是ClassLoader类自己实现的，
+				   
+				   该方法中的逻辑就是双亲委派模式的实现，其源码如下，loadClass(String name, boolean resolve)是一个重载方法，
+				   
+				   resolve参数代表是否生成class对象的同时进行解析相关操作。
+				   
+				   protected Class<?> loadClass(String name, boolean resolve)throws ClassNotFoundException {
+					   
+                               synchronized (getClassLoadingLock(name)) {
+                            // 先从缓存查找该class对象，找到就不用重新加载
+                          Class<?> c = findLoadedClass(name);
+                          if (c == null) {
+                               long t0 = System.nanoTime();
+                              try {
+                                 if (parent != null) {
+                                    //如果找不到，则委托给父类加载器去加载
+                                      c = parent.loadClass(name, false);
+                                } else {
+                                    //如果没有父类，则委托给启动加载器去加载
+                                    c = findBootstrapClassOrNull(name);
+                            }
+                           } catch (ClassNotFoundException e) {
+                              // ClassNotFoundException thrown if class not found
+                              // from the non-null parent class loader
+                          }
+
+                       if (c == null) {
+                                 // If still not found, then invoke findClass in order
+                               // 如果都没有找到，则通过自定义实现的findClass去查找并加载
+                              c = findClass(name);
+
+                              // this is the defining class loader; record the stats
+                               sun.misc.PerfCounter.getParentDelegationTime().addTime(t1 - t0);
+                               sun.misc.PerfCounter.getFindClassTime().addElapsedTimeFrom(t1);
+                               sun.misc.PerfCounter.getFindClasses().increment();
+                        }
+                      }
+                        if (resolve) {//是否需要在加载时进行解析
+                              resolveClass(c);
+                            }
+                            return c;
+                         }
+                       }
+				   
+				   2) findClass(): 
+				   
+				       在JDK1.2之前，在自定义类加载时，总会去继承ClassLoader类并重写loadClass方法，从而实现自定义的类加载类，
+					   
+					   但是在JDK1.2之后已不再建议用户去覆盖loadClass()方法，而是建议把自定义的类加载逻辑写在findClass()方法中，
+					   
+					   从前面的分析可知，findClass()方法是在loadClass()方法中被调用的，当loadClass()方法中父加载器加载失败后，
+					   
+					   则会调用自己的findClass()方法来完成类加载，这样就可以保证自定义的类加载器也符合双亲委托模式。
+					   
+					   需要注意的是ClassLoader类中并没有实现findClass()方法的具体代码逻辑，取而代之的是抛出ClassNotFoundException异常，
+					   
+					   同时应该知道的是findClass方法通常是和defineClass方法一起使用的(稍后会分析)
+					    
+						//直接抛出异常
+                        protected Class<?> findClass(String name) throws ClassNotFoundException {
+							
+                           throw new ClassNotFoundException(name);
+						   
+                        }
+					   
+				   
+				   3) defineClass()
+				         
+						 方法是用来将byte字节流解析成JVM能够识别的Class对象(ClassLoader中已实现该方法逻辑)，通过这个方法不仅能够通过class文件实例化class对象，
+					  
+					     也可以通过其他方式实例化class对象，如通过网络接收一个类的字节码，然后转换为byte字节流创建对应的Class对象，
+					  
+					     defineClass()方法通常与findClass()方法一起使用，一般情况下，在自定义类加载器时，
+					   
+					     会直接覆盖ClassLoader的findClass()方法并编写加载规则，取得要加载类的字节码后转换成流，
+					   
+					     然后调用defineClass()方法生成类的Class对象，简单例子如下
+						 
+						 protected Class<?> findClass(String name) throws ClassNotFoundException {
+                                // 获取类的字节数组
+                           byte[] classData = getClassData(name);  
+                          if (classData == null) {
+                              throw new ClassNotFoundException();
+                          } else {
+                             //使用defineClass生成class对象
+                           return defineClass(name, classData, 0, classData.length);
+                         }
+						 
+						 
+				    4)  resolveClass(Class≺?≻ c) 
+					
+					     使用该方法可以使用类的Class对象创建完成也同时被解析。前面我们说链接阶段主要是对字节码进行验证，
+						 
+						 为类变量分配内存并设置初始值同时将字节码文件中的符号引用转换为直接引用。
+						 
+						 
+  }
+					
+					
 			   5  类的初始化顺序
 				  
 				    属性、方法、构造方法和自由块都是类中的成员，在创建类的对象时，类中各成员的执行顺序：
@@ -1955,7 +2062,8 @@ public class Inter {
                       6. 执行子类的构造方法。
 					   
 	                   class SingleTon {
-	                         private static SingleTon singleTon = new SingleTon();
+	                         
+							 private static SingleTon singleTon = new SingleTon();
 	                         public static int count1;
 	                         public static int count2 = 0;
        
@@ -2180,6 +2288,74 @@ public class Inter {
                       低尾端存储顺序：
 
                             44 33 22 11	   // 地址递增顺序  高《----低		
+							
+				  11  Java GC 原理
+				  
+				      在主流商用语言(如Java、C#)的主流实现中, 都是通过可达性分析算法来判定对象是否存活的: 
+					  
+					  通过一系列的称为 GC Roots 的对象作为起点, 然后向下搜索; 搜索所走过的路径称为引用链/Reference Chain,
+
+					  当一个对象到 GC Roots 没有任何引用链相连时, 即该对象不可达, 也就说明此对象是不可用的, 如下图: Object5、6、7 虽然互有关联,
+
+					  但它们到GC Roots是不可达的, 因此也会被判定为可回收的对象:
+					  
+					  
+					  在Java, 可作为GC Roots的对象包括:
+					  
+                      方法区: 类静态属性引用的对象;
+                      
+					  方法区: 常量引用的对象;
+
+					  虚拟机栈(本地变量表)中引用的对象.
+					  
+                      本地方法栈JNI(Native方法)中引用的对象。
+					  
+                     注: 即使在可达性分析算法中不可达的对象, VM也并不是马上对其回收, 因为要真正宣告一个对象死亡, 至少要经历两次标记过程: 
+					 
+					 第一次是在可达性分析后发现没有与GC Roots相连接的引用链, 
+					 
+					 第二次是GC对在F-Queue执行队列中的对象进行的小规模标记(对象需要覆盖finalize()方法且没被调用过).
+					 
+				 12  Java GC 算法
+				 
+				     分代收集算法 VS 分区收集算法
+					 
+					 1）分代收集法：
+					 
+                      当前主流VM垃圾收集都采用”分代收集”(Generational Collection)算法, 这种算法会根据对象存活周期的不同将内存划分为几块, 
+					  
+					  如JVM中的 新生代、老年代、永久代. 这样就可以根据各年代特点分别采用最适当的GC算法:
+                      
+					  在新生代: 每次垃圾收集都能发现大批对象已死, 只有少量存活. 因此选用复制算法, 只需要付出少量存活对象的复制成本就可以完成收集.
+
+					  在老年代: 因为对象存活率高、没有额外空间对它进行分配担保, 就必须采用“标记—清理”或“标记—整理”算法来进行回收, 
+					            不必进行内存复制, 且直接腾出空闲内存.
+								
+					  注：标记—清理算法会有以下两个问题:
+                      
+					  I. 效率问题: 标记和清除过程的效率都不高;
+					  
+                      II. 空间问题: 标记清除后会产生大量不连续的内存碎片, 空间碎片太多可能会导致
+					  
+					      在运行过程中需要分配较大对象时无法找到足够的连续内存而不得不提前触发另一次垃圾收集.
+						  
+						  因此采用标记-整理：
+						  
+						  标记清除算法会产生内存碎片问题, 而复制算法需要有额外的内存担保空间, 于是针对老年代的特点, 又有了标记整理算法. 
+						  
+						  标记整理算法的标记过程与标记清除算法相同, 但后续步骤不再对可回收对象直接清理, 而是让所有存活的对象都向一端移动,然后清理掉端边界以外的内存.
+								
+					 2）分区收集法：
+					 
+					   上面介绍的分代收集算法是将对象的生命周期按长短划分为两个部分, 而分区算法则将整个堆空间划分为连续的不同小区间, 
+					   
+					   每个小区间独立使用, 独立回收. 这样做的好处是可以控制一次回收多少个小区间.
+                       
+					   在相同条件下, 堆空间越大, 一次GC耗时就越长, 从而产生的停顿也越长. 为了更好地控制GC产生的停顿时间, 将一块大的内存区域分割为多个小块, 
+					   
+					   根据目标停顿时间, 每次合理地回收若干个小区间(而不是整个堆), 从而减少一次GC所产生的停顿.
+					 
+					    
 
                   							
 					  
@@ -2440,6 +2616,8 @@ public class Inter {
 			// 68 tcp校验
 					 
 			// 70 restful
+			 
+			 // 内存泄露的几种方式
 
 			// 二  开发遇到的难点回顾
 
