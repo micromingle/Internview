@@ -1689,6 +1689,7 @@ public class Inter {
 					 避免静态变量持有比较大的bitmap对象或者其他大的数据对象，如果已经持有，要尽快置空该静态变量。
 					 
 		        Binder 传输数据大小 最多 800kb
+				
                 在onTransact 返回处理结果 通过 IApplicationThread 的一个实现类 实际上是ApplicationThreadProxy；
 				
 	       9    zygote Android通过zygote生成其他程序和进程
@@ -1699,7 +1700,109 @@ public class Inter {
   				所以包装了一个zygote 给大家使用
 				2)zygote启动以后 会向系统注册Socket ， 监听进来的socket 请求用户创建进程
 				3)当zygote被杀死后，其他app都会死亡，写时复制引起的（猜想）;
+				
+		   10   Handler 的介绍和解析
+		        
+				重点：MessageQueue  存储方式单向链表    Looper : 可以是主的looper （Handler） 也可以是非主的looper(HandlerThread);
+				
+				      
+		   11   ListView和RecyclerView的区别缓存机制:
+		   
+		       1) mRecyclerView 可以单独改变某个item的布局 ，各个ItemView 加Flag 来区分,ListView 一锅端
 			   
+			   2）ListView 缓存view   recycleView 缓存ViewHolder;
+			   
+			   3) RecyclerView onLayout()为重点，分为三步：
+
+                  dispathLayoutStep1()： 记录RecyclerView刷新前列表项ItemView的各种信息，如Top,Left,Bottom,Right，用于动画的相关计算；
+
+                  dispathLayoutStep2()： 真正测量布局大小，位置，核心函数为layoutChildren()；
+
+                  dispathLayoutStep3()： 计算布局前后各个ItemView的状态，如Remove，Add，Move，Update等，如有必要执行相应的动画
+				  
+			   
+		   12  ThreadLocal 解析
+		   
+		        1）每个线程中都创建了一个副本，那么每个线程可以访问自己内部的副本变量。
+				
+				    
+				2） 重要： Thread类有一个thread_local 的变量 
+				
+				     public T get() {
+                          Thread t = Thread.currentThread();
+                          ThreadLocalMap map = getMap(t);
+                          if (map != null) {
+                              ThreadLocalMap.Entry e = map.getEntry(this);
+                           if (e != null) {
+                               @SuppressWarnings("unchecked")
+                              T result = (T)e.value;
+                            return result;
+                         }
+                       }
+                      return setInitialValue();
+                     }
+					 
+					 
+					  private T setInitialValue() {
+                         T value = initialValue();
+                         Thread t = Thread.currentThread();
+                         ThreadLocalMap map = getMap(t);
+                         if (map != null)
+                            map.set(this, value);
+                          else
+                            createMap(t, value);
+                         return value;
+                     }
+					 
+					 
+					 void createMap(Thread t, T firstValue) {
+                        t.threadLocals = new ThreadLocalMap(this, firstValue);
+                     }
+					 
+					 
+					 protected T initialValue() {
+                       return null;
+                     }
+
+				3）使用场景 和例子
+				
+				    最常见的ThreadLocal使用场景为 用来解决 数据库连接、Session管理等。
+					
+					Connection:
+					
+					private static ThreadLocal<Connection> connectionHolder= new ThreadLocal<Connection>() {
+                       public Connection initialValue() {
+                         return DriverManager.getConnection(DB_URL);
+                       }
+                    };
+ 
+                        public static Connection getConnection() {
+                         return connectionHolder.get();
+                    }
+				  
+				   
+				    Session:
+					
+					private static final ThreadLocal threadSession = new ThreadLocal();
+ 
+                    public static Session getSession() throws InfrastructureException {
+                         Session s = (Session) threadSession.get();
+                        try {
+                           if (s == null) {
+                               s = getSessionFactory().openSession();
+                           threadSession.set(s);
+                        }
+                        } catch (HibernateException ex) {
+                         throw new InfrastructureException(ex);
+                       }
+                       return s;
+                    }
+					 
+					 
+				
+				    
+		   
+		         
 			   
 	   五 Framework 类
 	   
@@ -1895,6 +1998,39 @@ public class Inter {
 
                    方式 2）只能web调用android
 				   
+			 18   Activity的启动模式：
+			 
+			        standard：一个Task中可以有多个相同类型的Activity。注意，此处是相同类型的Activity，而不是同一个Activity对象。例如在Task中有A、B、C、D4个Activity，如果再启动A类Activity，
+
+            				  Task就会变成A、B、C、D、A。最后一个A和第一个A是同一类型，却并非同一对象。另外，多个Task中也可以有同类型的Activity。
+
+·                  singleTop：当某Task中有A、B、C、D4个Activity时，如果D想再启动一个D类型的Activity，那么Task将是什么样子呢？在singleTop模式下，Task中仍然是A、B、C、D，
+
+                              只不过D的onNewIntent函数将被调用以处理这个新Intent，而在standard模式下，则Task将变成A、B、C、D、D，最后的D为新创建的D类型Activity对象。在singleTop这种模式下，
+							 
+							  只有目标Acitivity当前正好在栈顶时才有效，例如只有处于栈顶的D启动时才有用，如果D启动不处于栈顶的A、B、C等，则无效。
+
+·                 singleTask：在这种启动模式下，该Activity只存在一个实例，并且将和一个Task绑定。当需要此Activity时，系统会以onNewIntent方式启动它，而不会新建Task和Activity。
+
+                              注意，该Activity虽只有一个实例，但是在Task中除了它之外，还可以有其他的Activity。
+
+·             singleInstance：它是singleTask的加强版，即一个Task只能有这么一个设置了singleInstance的Activity，不能再有别的Activity。
+
+                               而在singleTask模式中，Task还可以有其他的Activity。
+							   
+				 其他FLAG:
+				 
+				   除了启动模式外，Android还有其他一些标志用于控制Activity及Task之间的关系。这里只列举一二，详细信息请参阅SDK文档中Intent的相关说明。
+
+                   ·  FLAG_ACTIVITY_NEW_TASK：将目标Activity放到一个新的Task中。
+
+                   ·  FLAG_ACTIVITY_CLEAR_TASK：当启动一个Activity时，先把和目标Activity有关联的Task“干掉“，然后启动一个新的Task，并把目标Activity放到新的Task中。
+				      该标志必须和FLAG_ACTIVITY_NEW_TASK标志一起使用。
+
+                   ·  FLAG_ACTIVITY_CLEAR_TOP：当启动一个不处于栈顶的Activity时候，先把排在它前面的Activity“干掉”。例如Task有A、B、C、D4个Activity，要要启动B，
+				   
+				      直接把C、D“干掉”，而不是新建一个B。
+				   
 					  
 		  六： JAVA 语言类
 		   
@@ -2054,7 +2190,7 @@ public class Inter {
 			   5  类的初始化顺序
 				  
 				    属性、方法、构造方法和自由块都是类中的成员，在创建类的对象时，类中各成员的执行顺序：
-                      1. 父类静态成员和静态初始化快，按在代码中出现的顺序依次执行。 // 2018-8-18复习出现概念性错误，以为成员和块不是同时实例化
+                      1. 父类静态成员和静态初始化快，按在代码中出现的顺序依次执行。 // 2018-7-18复习出现概念性错误，以为成员和块不是同时实例化
                       2. 子类静态成员和静态初始化块，按在代码中出现的顺序依次执行。
                       3. 父类的实例成员和实例初始化块，按在代码中出现的顺序依次执行。
                       4. 执行父类的构造方法。                                       // 成员变量会和构造函数一块执行
