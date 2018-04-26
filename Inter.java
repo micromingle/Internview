@@ -1748,6 +1748,8 @@ public class Inter {
 
                   dispathLayoutStep3()： 计算布局前后各个ItemView的状态，如Remove，Add，Move，Update等，如有必要执行相应的动画
 				  
+			
+				  
 			   
 		   12  ThreadLocal 解析
 		   
@@ -1829,9 +1831,56 @@ public class Inter {
 					 
 				
 				    
+		   13   列表的优化方案:
 		   
+		         1、ViewHolder优化
+
+                    使用ViewHolder的原因是findViewById方法耗时较大，如果控件个数过多，会严重影响性能，而使用ViewHolder主要是为了可以省去这个时间。通过setTag，getTag直接获取View
+					
+				 2、图片加载优化
+
+                    如果ListView需要加载显示网络图片，我们尽量不要在ListView滑动的时候加载图片，那样会使ListView变得卡顿，所以我们需要在监听器里面监听ListView的状态，
+					
+					如果ListView滑动（SCROLL_STATE_TOUCH_SCROLL）或者被猛滑（SCROLL_STATE_FLING）的时候，停止加载图片，如果没有滑动（SCROLL_STATE_IDLE），则开始加载图片。
 		         
-			   
+			     3、onClickListener处理
+
+				   当ListView的item中有比如button这些子view时，需要对其设置onclickListener，通常的写法是在getView方法中一个个设置，比如
+
+                   holder.img.setonClickListener(new onClickListenr)...  
+				   
+                   但是这种写法每次调用getView时都设置了一个新的onClick事件，效率很低。高效的写法可以直接在ViewHolder中设置一个position，
+				  
+				   然后viewHolder implements OnClickListenr：
+				   
+			    4, 减少Item View的布局层级
+				   
+                   这是所有layout都必须遵循的，布局层级过深会直接导致View的测量与绘制浪费大量的时间
+				   
+				5、 adapter中的getView方法尽量少做耗时操作
+
+				6、 adapter中的getView方法避免创建大量对象
+
+				7、 将ListView的scrollingCache和animateCache设置为false   
+				
+				8,  其它
+
+                    1、 利用好 View Type，例如你的 ListView 中有几个类型的 Item，需要给每个类型创建不同的 View，这样有利于 ListView 的回收，当然类型不能太多
+
+					2、 善用自定义 View，自定义 View 可以有效的减小 Layout 的层级，而且对绘制过程可以很好的控制；
+
+					3、 尽量能保证 Adapter 的 hasStableIds() 返回 true，这样在 notifyDataSetChanged() 的时候，如果 id 不变，ListView 将不会重新绘制这个 View，达到优化的目的；
+
+					4、 每个Item 不能太高，特别是不要超过屏幕的高度，可以参考 Facebook 的优化方法，把特别复杂的 Item 分解成若干小的 Item
+
+					5、 ListView 中元素避免半透明
+
+					6、 尽量开启硬件加速
+
+					7、 使用 RecycleView 代替。 ListView 每次更新数据都要 notifyDataSetChanged()，有些太暴力了。RecycleView 在性能和可定制性上都有很大的改善，推荐使用。
+					
+				   
+				 
 	   五 Framework 类
 	   
 	        1、应用程序窗口 (Application Window): 包括所有应用程序自己创建的窗口，以及在应用起来之前系统负责显示的窗口。
@@ -2061,9 +2110,1054 @@ public class Inter {
 					  
 			 19   WindowManagerService解析
 			 
+			 
+			 20   Activity 显示过程：
+			 
+			      1） Activity 显示过程
 			       
-				   
+				      一般来说，应用程序的外表是通过Activity来展示的。那么，Activity是如何完成界面绘制工作的呢？根据前面所讲的知识，应用程序的显示和Surface有关，那么具体到Activity上，它和Surface又是什么关系呢？
+
+                      本节就来讨论这些问题。首先从Activity的创建说起。 
 					  
+					  ActivityThread类中有一个handleLaunchActivity函数，它就是创建Activity的地方。一起来看这个函数，代码如下所示：
+					  
+					  private final voidhandleLaunchActivity(ActivityRecord r, Intent customIntent) {
+
+                            //①performLaunchActivity返回一个Activity
+
+                           Activity a = performLaunchActivity(r, customIntent);
+
+ 
+
+                          if(a != null) {
+
+                               r.createdConfig = new Configuration(mConfiguration);
+
+                               Bundle oldState = r.state;
+
+                               //②调用handleResumeActivity
+
+                              handleResumeActivity(r.token, false, r.isForward);
+
+                            }
+
+                     }
+					 
+					 
+					 handleLaunchActivity函数中列出了两个关键点，下面对其分别介绍。
+
+                     1. 创建Activity
+
+					     第一个关键函数performLaunchActivity返回一个Activity，这个Activity就是App中的那个Activity（仅考虑App中只有一个Activity的情况），它是怎么创建的呢？其代码如下所示：
+						 
+						 [-->ActivityThread.java]
+
+                         private final Activity performLaunchActivity(ActivityRecord r,Intent customIntent) {
+
+        
+
+                              ActivityInfo aInfo = r.activityInfo;
+  
+                             //完成一些准备工作
+
+                             //Activity定义在Activity.java中
+
+                             Activity activity = null;
+
+                             try {
+
+                                 java.lang.ClassLoader cl = r.packageInfo.getClassLoader();
+
+                                 /*
+
+                                   mInstrumentation为Instrumentation类型，源文件为Instrumentation.java。
+
+                                   它在newActivity函数中根据Activity的类名通过Java反射机制来创建对应的Activity，
+
+                                   这个函数比较复杂，待会我们再分析它。
+
+                                    */
+
+                               activity = mInstrumentation.newActivity(
+
+                               cl,component.getClassName(), r.intent);
+
+                               r.intent.setExtrasClassLoader(cl);
+
+                               if (r.state != null) {
+
+                                r.state.setClassLoader(cl);
+
+                                }
+
+                               }catch (Exception e) {
+
+                                   ......
+
+                                }
+
+ 
+
+                            try {
+
+                              Application app = r.packageInfo.makeApplication(false,mInstrumentation);
+
+ 
+
+                          if (activity != null) {
+
+                                //在Activity中getContext函数返回的就是这个ContextImpl类型的对象
+
+                                ContextImpl appContext = new ContextImpl();
+
+                                  ......
+
+                               //下面这个函数会调用Activity的onCreate函数
+
+                                mInstrumentation.callActivityOnCreate(activity, r.state);
+
+                               ......
+
+                            return activity;
+
+                        }
+						
+						好了，performLaunchActivity函数的作用明白了吧？
+
+                        ·  根据类名以Java反射的方法创建一个Activity。
+
+                        ·  调用Activity的onCreate函数，开始SDK中大书特书Activity的生命周期。
+
+                           那么，在onCreate函数中，我们一般会做什么呢？在这个函数中，和UI相关的重要工作就是调用setContentView来设置UI的外观。接下去，需要看handleLaunchActivity中第二个关键函数handleResumeActivity。
+						   
+						   
+						 2. 分析handleResumeActivity  
+						 
+                           上面已创建好了一个Activity，再来看handleResumeActivity。它的代码如下所示：
+
+                           [-->ActivityThread.java]  
+						   
+						   final void handleResumeActivity(IBinder token,boolean clearHide,boolean isForward) {
+
+                                 boolean willBeVisible = !a.mStartedActivity;
+
+          
+
+                              if (r.window == null && !a.mFinished&& willBeVisible) {
+
+                                   r.window= r.activity.getWindow();
+
+                                  //①获得一个View对象
+
+                                  Viewdecor = r.window.getDecorView();
+
+                                 decor.setVisibility(View.INVISIBLE);
+
+                                //②获得ViewManager对象
+
+                                 ViewManagerwm = a.getWindowManager();
+
+                                  ......
+
+                               //③把刚才的decor对象加入到ViewManager中
+
+                                 wm.addView(decor,l);
+
+                                }
+
+                                 ......//其他处理
+
+                             }
+							 
+							上面有三个关键点。这些关键点似乎已经和UI部分（如View、Window）有联系了。那么这些联系是在什么时候建立的呢？在分析上面代码中的三个关键点之前，请大家想想在前面的过程中，哪些地方会和UI挂上钩呢？
+
+                            ·  答案就在onCreate函数中，Activity一般都在这个函数中通过setContentView设置UI界面。
+
+                               看来，必须先分析setContentView，才能继续后面的征程。
+							   
+							   
+						   3. 分析setContentView
+
+						      setContentView有好几个同名函数，现在只看其中的一个就可以了。代码如下所示：
+
+                              [-->Activity.java]
+							  
+							  public void setContentView(View view) {
+
+                                 //getWindow返回的是什么呢？一起来看看。
+
+                                 getWindow().setContentView(view);
+
+                              }
+							  
+							  
+							  public Window getWindow() {
+
+                               return mWindow; //返回一个类型为Window的mWindow，它是什么？
+
+                              }
+							  
+							  
+							  根据上面的介绍，大家可能会产生两个疑问：
+
+                              ·  Window是一个抽象类，它实际的对象到底是什么类型？
+
+                              ·  Window Manager究竟是什么？
+
+                                 如果能有这样的疑问，就说明我们非常细心了。下面试来解决这两个问题。
+
+                                （1）Activity的Window
+
+								     据上文讲解可知，Window是一个抽象类。它实际的对象到底属于什么类型？先回到Activity创建的地方去看看。下面正是创建Activity时的代码，可当时没有深入地分析。
+									 
+									 activity = mInstrumentation.newActivity(
+
+                                     cl,component.getClassName(), r.intent);
+									 
+									 代码中调用了Instrumentation的newActivity，再去那里看看。
+									 
+									 public Activity newActivity(Class<?>clazz, Context context,
+
+                                            IBinder token, Application application, Intent intent,
+
+                                             ActivityInfo info, CharSequencetitle, Activity parent,
+
+                                             String id,Object lastNonConfigurationInstance) throws InstantiationException, IllegalAccessException{
+
+       
+
+                                              Activity activity = (Activity)clazz.newInstance();
+ 
+                                              ActivityThread aThread = null;
+
+                                             //关键函数attach!!
+
+                                           activity.attach(context, aThread, this, token, application, intent,
+
+                                          info, title,parent, id, lastNonConfigurationInstance,
+
+                                        new Configuration());
+
+                                        return activity;
+
+                                    }
+									
+									看到关键函数attach了吧？Window的真相马上就要揭晓了，让我们用咆哮体②来表达内心的激动之情吧！！！！
+									
+									[-->Activity.java]
+									
+									final void attach(Context context,ActivityThread aThread,Instrumentation instr, IBinder token, int ident,
+
+                                                        Application application, Intent intent, ActivityInfo info, CharSequence title, Activity parent, String id,
+
+                                                        Object lastNonConfigurationInstance,HashMap<String,Object> lastNonConfigurationChildInstances,
+
+                                                           Configuration config) {
+
+                                                   ......
+
+                                                  //利用PolicyManager来创建Window对象
+
+                                                mWindow = PolicyManager.makeNewWindow(this);
+
+                                                mWindow.setCallback(this);
+
+                                                  ......
+
+                                             //创建WindowManager对象
+
+                                            mWindow.setWindowManager(null, mToken, mComponent.flattenToString());
+
+                                          if(mParent != null) {
+
+                                          mWindow.setContainer(mParent.getWindow());
+
+                                         }
+ 
+                                       //保存这个WindowManager对象
+
+                                        mWindowManager = mWindow.getWindowManager();
+
+                                        mCurrentConfig = config;
+
+                                     }
+							  
+					            （2）水面下的冰山——PolicyManager
+								 
+								      PolicyManager定义于PolicyManager.java文件，该文件在一个非常独立的目录下，现将其单独列出来：
+
+                                      下面来看这个PolicyManager，它比较简单。
+
+                                      [-->PolicyManager.java]
+									  
+									   public final class PolicyManager {
+
+                                        private static final String POLICY_IMPL_CLASS_NAME =
+
+                                                  "com.android.internal.policy.impl.Policy";
+
+ 
+
+                                        private static final IPolicy sPolicy;
+
+ 
+
+                                       static{
+
+                                        //
+
+                                      try {
+
+                                       Class policyClass = Class.forName(POLICY_IMPL_CLASS_NAME);
+
+                                        //创建Policy对象
+
+                                       sPolicy = (IPolicy)policyClass.newInstance();
+
+                                       }catch (ClassNotFoundException ex) {
+
+                                        ......
+
+                                       }
+
+ 
+
+                                     private PolicyManager() {}
+
+ 
+
+                                     //通过Policy对象的makeNewWindow创建一个Window
+
+                                     publicstatic Window makeNewWindow(Context context) {
+
+                                        return sPolicy.makeNewWindow(context);
+
+                                     }
+
+                                      ......
+ 
+                                     }
+									 
+							  （3） 真正的Window
+                                   
+								      Policy类型的定义代码如下所示：
+
+                                      [-->Policy.java]
+
+                                      public class Policy implements IPolicy {
+
+                                           private static final String TAG = "PhonePolicy";
+
+ 
+
+                                           private static final String[] preload_classes = {
+
+                                              "com.android.internal.policy.impl.PhoneLayoutInflater",
+
+                                              "com.android.internal.policy.impl.PhoneWindow",
+
+                                              "com.android.internal.policy.impl.PhoneWindow$1",
+
+                                              "com.android.internal.policy.impl.PhoneWindow$ContextMenuCallback",
+
+                                              "com.android.internal.policy.impl.PhoneWindow$DecorView",
+
+                                              "com.android.internal.policy.impl.PhoneWindow$PanelFeatureState",
+
+                                              "com.android.internal.policy.impl.PhoneWindow$PanelFeatureState$SavedState",
+
+                                            };
+
+ 
+
+                                        static{
+
+                                       //加载所有的类
+
+                                      for (String s : preload_classes) {
+
+                                       try {
+
+                                         Class.forName(s);
+
+                                         } catch (ClassNotFoundException ex) {
+
+                                         ......
+
+                                        }
+
+                                      }
+
+                                    }
+
+ 
+
+                                     public PhoneWindow makeNewWindow(Contextcontext) {
+
+                                          //makeNewWindow返回的是PhoneWindow对象
+
+                                     return new PhoneWindow(context);
+
+                                       }
+
+ 
+
+   
+
+                                      }
+
+                                      至此，终于知道了代码：
+ 
+                                      mWindow = PolicyManager.makeNewWindow(this);
+
+                                      返回的Window，原来是一个PhoneWindow对象。它的定义在PhoneWindow.java中。
+
+                                      mWindow的真实身份搞清楚了，还剩下个WindowManager。现在就来揭示其真面目。
+									  
+							 （4）真正的WindowManager
+							 
+                                      先看WindowManager创建的代码，如下所示：
+
+                                      [-->Activity.java]
+
+                                      ......//创建mWindow对象
+
+                                     //调用mWindow的setWindowManager函数
+
+                                     mWindow.setWindowManager(null, mToken,mComponent.flattenToString());
+
+                                     .....
+
+                                    上面的函数设置了PhoneWindow的WindowManager，不过第一个参数是null，这是什么意思？在回答此问题之前，先来看PhoneWindow的定义，它是从Window类派生。
+
+                                     [-->PhoneWindow.java::PhoneWindow定义]
+
+                                      public class PhoneWindow extends Windowimplements MenuBuilder.Callback
+
+                                         前面调用的setWindowManager函数，其实是由PhoneWindow的父类Window类来实现的，来看其代码，如下所示：
+
+                                         [-->Window.java]
+										 
+										  public void setWindowManager(WindowManagerwm,IBinder appToken, String appName) {     //注意，传入的wm值为null
+
+                                                  mAppToken = appToken;
+
+                                                 mAppName = appName;
+
+                                         if(wm == null) {
+
+                                         //如果wm为空的话，则创建WindowManagerImpl对象
+
+                                          wm = WindowManagerImpl.getDefault();
+
+                                        }
+
+                                        //mWindowManager是一个LocalWindowManager
+
+                                         mWindowManager = new LocalWindowManager(wm);
+
+                                       }
+
+                                       LocalWindowManager是在Window中定义的内部类，请看它的构造函数，其定义如下所示：
+
+                                      [-->Window.java::LocalWindowManager定义]
+
+                                      private class LocalWindowManager implementsWindowManager {
+
+                                             LocalWindowManager(WindowManager wm) {
+
+                                             mWindowManager = wm;//还好，只是简单地保存了传入的wm参数
+
+                                             mDefaultDisplay = mContext.getResources().getDefaultDisplay(
+
+                                                         mWindowManager.getDefaultDisplay());
+
+                                        }
+
+                                             ......
+
+                                       如上面代码所示，LocalWindowManager将保存一个WindowManager类型的对象，这个对象的实际类型是WindowManagerImpl。而WindowManagerImpl又是什么呢？来看它的代码，如下所示：
+
+                                      [-->WindowManagerImpl.java]
+
+                                     public class WindowManagerImpl implements WindowManager {
+
+                                            ......
+
+ 
+
+                                       public static WindowManagerImpl getDefault()
+
+                                                  {
+
+                                        return mWindowManager; //返回的就是WindowManagerImpl对象
+
+                                      }
+
+                                      private static WindowManagerImpl mWindowManager= new WindowManagerImpl();
+
+                                      }
+							4. 重回handleResumeActivity
+
+							   看完setContentView的分析后，不知大家是否还记得这样一个问题：为什么要分析这个setContentView函数？在继续前行之前，先来回顾一下被setContentView打断的流程。
+
+                               当时，我们正在分析handleResumeActivity，代码如下所示：
+
+                               [-->ActivityThread.java]		
+
+                                final void handleResumeActivity(IBinder token,boolean clearHide,boolean isForward) {
+									
+
+                                 booleanwillBeVisible = !a.mStartedActivity;
+
+                                    ......
+
+                                if (r.window == null && !a.mFinished&& willBeVisible) {
+
+                                    r.window= r.activity.getWindow();
+
+                                    //①获得一个View对象。现在知道这个view就是DecorView
+
+                                    Viewdecor = r.window.getDecorView();
+
+                                     decor.setVisibility(View.INVISIBLE);
+
+                                    //②获得ViewManager对象,这个wm就是LocalWindowManager
+
+                                    ViewManagerwm = a.getWindowManager();
+
+                                    WindowManager.LayoutParamsl = r.window.getAttributes();
+
+                                    a.mDecor= decor;
+
+                                   l.type =WindowManager.LayoutParams.TYPE_BASE_APPLICATION;
+
+                                  if(a.mVisibleFromClient) {
+
+                                    a.mWindowAdded= true;
+
+                                  //③把刚才的decor对象加入到ViewManager中
+
+                                    wm.addView(decor,l);  //非常关键的代码
+
+                                  }
+
+                                  ......//其他处理
+
+                                 }
+								 
+
+                                 在上面的代码中，由于出现了多个之前不熟悉的东西，如View、ViewManager等，而这些东西的来源又和setContentView有关，所以我们才转而去分析setContentView了。想起来了吧？
+
+                                 由于代码比较长，跳转关系也很多，在分析代码时，请读者把握流程，在大脑中建立一个代码分析的堆栈。
+
+                                 下面就从addView的分析开始。如前面所介绍的，它的调用方法是：
+
+                                 wm.addView(decor, l);//wm类型实际是LocalWindowManager
+
+                                 来看这个addView函数，它的代码如下所示：
+
+                                 [-->Window.javaLocalWindowManager]
+
+                                   public final void addView(View view,ViewGroup.LayoutParams params) {
+
+  
+
+                                     WindowManager.LayoutParams wp =(WindowManager.LayoutParams)params;
+
+                                     CharSequence curTitle = wp.getTitle();
+
+                                     ...... //做一些操作，可以不管它
+
+                                      //还记得前面提到过的Proxy模式吗？mWindowManager对象实际上是WindowManagerImpl类型
+
+                                      mWindowManager.addView(view, params);
+
+                                    }
+
+                                  看来，要搞清楚这个addView函数还是比较麻烦的，因为现在必须到WindowManagerImpl中去看看。它的代码如下所示：
+								  
+
+                                 [-->WindowManagerImpl.java]
+								 
+
+                                 private void addView(View view,ViewGroup.LayoutParams params, boolean nest){
+
+                                         ViewRootroot; //ViewRoot，幕后的主角终于登场了！
+
+                                             synchronized(this) {
+
+                                               //①创建ViewRoot
+
+                                              root =new ViewRoot(view.getContext());
+
+                                              root.mAddNesting = 1;
+
+                                              view.setLayoutParams(wparams);
+
+           
+
+                                            if(mViews == null) {
+
+                                               index = 1;
+
+                                               mViews = new View[1];
+
+                                               mRoots= new ViewRoot[1];
+
+                                               mParams = new WindowManager.LayoutParams[1];
+
+                                            } else{
+
+                                                ......
+        
+                                            }
+
+                                             index--;
+
+                                             mViews[index]= view;
+
+                                             mRoots[index]= root;//保存这个root
+
+                                             mParams[index]= wparams;
+
+ 
+
+                                             //②setView,其中view是刚才我们介绍的DecorView
+
+                                             root.setView(view,wparams, panelParentView);//
+
+                                 }
+
+                                   “ViewRoot，ViewRoot ....”，主角终于出场了！即使没介绍它的真实身份，不禁也想欢呼几声。可为避免高兴得过早，还是应该先冷静地分析一下它。这里，列出了ViewRoot的两个重要关键点。
+
+                            （1）ViewRoot是什么？
+  
+                                    ViewRoot是什么？看起来好像和View有些许关系，至少名字非常像。事实上，它的确和View有关系，因为它实现了ViewParent接口。SDK的文档中有关于ViewParent的介绍。
+									
+									但它和Android基本绘图单元中的View却不太一样，比如：ViewParent不处理绘画，因为它没有onDraw函数。
+
+                                    如上所述，ViewParent和绘画没有关系，那么，它的作用是什么？先来看它的代码，如下所示：
+
+                                   [-->ViewRoot.java::ViewRoot定义]
+
+                                   public final class ViewRoot extends Handlerimplements ViewParent,
+
+                                              View.AttachInfo.Callbacks //从Handler类派生
+
+                                            {
+
+                                            private final Surface mSurface = new Surface();//这里创建了一个Surface对象
+
+                                           final W mWindow; //这个是什么？
+
+                                            View mView;
+
+                                        } 
+                            
+							（2）神笔马良乎？
+                                
+								这里冒出来一个Surface类。它是什么？在回答此问题之前，先来考虑这样一个问题：
+
+                                ·  前文介绍的View、DecorView等都是UI单元，这些UI单元的绘画工作都在onDraw函数中完成。如果把onDraw想象成画图过程，那么画布是什么？
+
+                                   Android肯定不是“马良”，它也没有那支可以在任何物体上作画的“神笔”，所以我们需要一块实实在在的画布，这块画布就是Surface。SDK文档对Surface类的说明是：
+								   
+								   Handle on to a raw buffer thatis being managed by the screen compositor。这句话的意思是：
+
+                                ·  有一块Raw buffer，至于是内存还是显存，不必管它。
+
+                                ·  Surface操作这块Raw buffer。
+
+                                ·  Screen compositor（其实就是SurfaceFlinger）管理这块Raw buffer。  										
+
+								结合之前所讲的知识，图8-5清晰地传达了如下几条信息：
+
+                                 ·  ViewRoot有一个成员变量mSurface，它是Surface类型，它和一块Raw Buffer有关联。
+
+                                 ·  ViewRoot是一个ViewParent，它的子View的绘画操作，是在画布Surface上展开的。
+
+                                 ·  Surface和SurfaceFlinger有交互，这非常类似AudioTrack和AudioFlinger之间的交互。
+							   
+						 （3）  ViewRoot的创建和对setView的分析
+							
+							
+                               来分析ViewRoot的构造。关于它所包含内容，代码如下所示：
+ 
+                               [-->ViewRoot.java]
+
+                               public ViewRoot(Context context) {
+
+                                      super();
+
+                                    ....
+ 
+                                    // getWindowSession？我们进去看看
+
+                                  getWindowSession(context.getMainLooper());
+
+                                  ......//ViewRoot的mWindow是一个W类型，注意它不是Window类型，而是IWindow类型
+
+                                  mWindow= new W(this, context);
+
+                                }
+
+                               getWindowsession函数，将建立Activity的ViewRoot和WindowManagerService的关系。代码如下所示：
+
+                                [-->ViewRoot.java]
+
+                               public static IWindowSessiongetWindowSession(Looper mainLooper) {
+
+                                      synchronized (mStaticInit) {
+
+                                        if(!mInitialized) {
+
+                                             try {
+
+                                        InputMethodManagerimm =
+
+                                                InputMethodManager.getInstance(mainLooper);
+
+                                     //下面这个函数先得到WindowManagerService的Binder代理，然后调用它的openSession
+
+                                     sWindowSession = IWindowManager.Stub.asInterface(
+
+                                              ServiceManager.getService("window"))
+
+                                             .openSession(imm.getClient(), imm.getInputContext());
+
+                                             mInitialized = true;
+
+                                         } catch (RemoteException e) {
+
+                                              }
+
+                                            }
+
+                                            return sWindowSession;
+
+                                      }
+
+                                  }
+							
+
+                             WindowSession？WindowManagerService？第一次看到这些东西时，我快疯了。复杂，太复杂，无比复杂！要攻克这些难题，应先来回顾一下与Zygote相关的知识：
+
+                           ·  WindowManagerService（以后简称WMS）由System_Server进程启动，SurfaceFlinger服务也在这个进程中。
+
+                              看来，Activity的显示还不单纯是它自己的事，还需要和WMS建立联系才行。继续看。先看setView的处理。这个函数很复杂，注意其中关键的几句。
+
+                              openSession的操作是一个使用Binder通信的跨进程调用，暂且记住这个函数，在精简流程之后再来分析。
+
+                              代码如下所示：
+
+                              [-->ViewRoot.java]
+
+                               public void setView(View view, WindowManager.LayoutParamsattrs,
+ 
+                                              View panelParentView){//第一个参数view是DecorView
+
+                                         ......
+
+                                    mView= view;//保存这个view
+
+                                  synchronized (this) {
+
+                                         requestLayout(); //待会先看看这个。
+
+                                 try {
+
+                                      //调用IWindowSession的add函数，第一个参数是mWindow
+
+                                       res =sWindowSession.add(mWindow, mWindowAttributes,
+
+                                           getHostVisibility(), mAttachInfo.mContentInsets);
+ 
+                                }
+
+                                 ......
+
+                              }
+
+                             ViewRoot的setView函数做了三件事：
+
+                            ·  保存传入的view参数为mView，这个mView指向PhoneWindow的DecorView。
+
+                            ·  调用requestLayout。
+
+                            ·  调用IWindowSession的add函数，这是一个跨进程的Binder通信，第一个参数是mWindow，它是W类型，从IWindow.stub派生。
+
+                                先来看这个requestLayout函数，它非常简单，就是往handler中发送了一个消息。注意，ViewRoot是从Handler派生的，所以这个消息最后会由ViewRoot自己处理，代码如下所示：
+
+                             [-->ViewRoot.java]
+
+                              public void requestLayout() {
+
+                                  checkThread();
+
+                                  mLayoutRequested = true;
+
+                                  scheduleTraversals();
+
+                              }
+
+                             public void scheduleTraversals() {
+
+                                 if(!mTraversalScheduled) {
+
+                                mTraversalScheduled = true;
+
+                                   sendEmptyMessage(DO_TRAVERSAL); //发送DO_TRAVERSAL消息
+
+                               }
+
+                            }
+
+                           好，requestLayout分析完毕。
+
+                           从上面的代码中可发现，ViewRoot和远端进程SystemServer的WMS有交互，先来总结一下它和WMS的交互流程：
+
+                            ·  ViewRoot调用openSession，得到一个IWindowSession对象。
+
+                            ·  调用WindowSession对象的add函数，把一个W类型的mWindow对象做为参数传入。     
+
+                          
+                        (4)  Activity的绘制：
+
+                              ViewRoot的setView函数中，会有一个requestLayout。根据前面的分析可知，它会向ViewRoot发送一个DO_TRAVERSAL消息，来看它的handleMessage函数，代码如下所示：
+
+                              [-->ViewRoot.java]
+
+                              public void handleMessage(Message msg) {
+
+                                  switch (msg.what) {
+
+                                           ......
+
+                                  case DO_TRAVERSAL:
+
+                                           ......
+
+                                       performTraversals();//调用performTraversals函数
+
+                                   ......
+
+                                 break;
+
+                                 ......
+
+                                }
+
+                              }
+
+                            再去看performTraversals函数，这个函数比较复杂，先只看它的关键部分，代码如下所示：
+
+                            [-->ViewRoot.java]
+
+                            private void performTraversals() {
+
+                                   finalView host = mView;//还记得这mView吗？它就是DecorView喔
+                                  
+								  boolean initialized = false;
+
+                                  boolean contentInsetsChanged = false;
+
+                                  boolean visibleInsetsChanged;
+
+                                 try {
+
+                                   relayoutResult= //①关键函数relayoutWindow
+
+                                   relayoutWindow(params, viewVisibility,insetsPending);
+
+                                  }
+
+                                 ......
+
+                                draw(fullRedrawNeeded);// ②开始绘制
+
+                                ......
+
+                             }
+
+                              1. relayoutWindow的分析
+
+						       performTraversals函数比较复杂，暂时只关注其中的两个函数relayoutWindow和draw即可。先看第一个relayoutWindow，代码如下所示：
+
+                                 [-->ViewRoot.java]
+
+                                 private intrelayoutWindow(WindowManager.LayoutParams params,
+
+                                    int viewVisibility, boolean insetsPending)throws RemoteException {
+
+      
+
+                                     //原来是调用IWindowSession的relayOut，暂且记住这个调用
+
+                                    int relayoutResult = sWindowSession.relayout(
+
+                                         mWindow, params,
+
+                                       (int) (mView.mMeasuredWidth * appScale + 0.5f),
+
+                                        (int) (mView.mMeasuredHeight * appScale + 0.5f),
+
+                                       viewVisibility, insetsPending, mWinFrame,
+
+                                       mPendingContentInsets, mPendingVisibleInsets,
+
+                                      mPendingConfiguration, mSurface); mSurface做为参数传进去了。
+									  
+						 	  
+
+                                  }
+
+                                  ......
+
+                                }
+
+                                relayoutWindow中会调用IWindowSession的relayout函数，暂且记住这个调用，在精简流程后再进行分析。
+
+                             2. draw的分析
+
+							    再来看draw函数。这个函数非常重要，它可是Acitivity漂亮脸蛋的塑造大师啊，代码如下所示：
+
+                               [-->ViewRoot.java]
+
+                                private void draw(boolean fullRedrawNeeded) {
+
+                                     Surface surface = mSurface;//mSurface是ViewRoot的成员变量
+
+                                      ......
+
+                                    Canvas canvas;
+
+                                  try {
+
+                                   int left = dirty.left;
+ 
+                                   int top = dirty.top;
+
+                                   int right = dirty.right;
+
+                                   int bottom = dirty.bottom;
+
+                                   //从mSurface中lock一块Canvas
+
+                                   canvas = surface.lockCanvas(dirty);
+
+                                   ......
+
+                                    mView.draw(canvas);//调用DecorView的draw函数，canvas就是画布的意思啦！
+
+                                   ......
+
+                                    //unlock画布，屏幕上马上就会见到漂亮宝贝的长相了。
+
+                                   surface.unlockCanvasAndPost(canvas);
+
+                                }
+
+                                   ......
+
+                                  }
+
+                                UI的显示好像很简单嘛！真的是这样的吗？在揭露这个“惊天秘密”之前我们先总结一下Activity的显示流程。						 
+							        
+				        （5） Activity显示自己的总结：
+						
+						       ActivityThread  执行performLaunchActivity  在此方法里创建新的activity  用的是 Instrumentation的new Activity
+							                                        
+																	  |
+							                                          |
+					                                                  V
+							  在 Instrumentation newActivity里会调用attach 方法 在此方法里创建Window 调用的是PolicyManager.makeNewWindow 返回的是PhoneWindow对象，并创建decorView
+							                                          |
+							                                          |
+					                                                  V
+							  执行performLaunchActivity，做了一些初始化工作以后，调用Activity onCreate 方法，的setContentView 方法 将contentView set到decorView里
+							  
+							                                          |
+							                                          |
+					                                                  V
+							  onResume:  handleOnResumeActivity 里 调用WindowManager.addView 方法将 decorView 压入窗口，addView 的方法里会调用到ViewRootImp这个类 在这个类里进行view 的 measure layout draw 
+							  
+							  操作，然后将view显示出来
+							  
+							  
+			  21  Surface类 ；
+
+                     在Android中，Surface系统工作时，会由SurfaceFlinger对这些按照Z轴排好序的显示层进行图像混合，混合后的图像就是在屏幕上看到的美妙画面了。这种按Z轴排序的方式符合我们在日常生活中的体验，例如前面的物体会遮挡住后面的物体。
+
+                     注意，Surface系统中定义了一个名为Layer类型的类，为了区分广义概念上的Layer和代码中的Layer，这里称广义层的Layer为显示层，以免混淆。
+
+                     Surface系统提供了三种属性，一共四种不同的显示层。简单介绍一下：
+
+                     ·  第一种属性是eFXSurfaceNormal属性，大多数的UI界面使用的就是这种属性。它有两种模式：
+
+                       1）Normal模式，这种模式的数据，是通过前面的mView.draw(canvas)画上去的。这也是绝大多数UI所采用的方式。
+
+                       2）PushBuffer模式，这种模式对应于视频播放、摄像机摄录/预览等应用场景。以摄像机为例，当摄像机运行时，来自Camera的预览数据直接push到Buffer中，无须应用层自己再去draw了。
+
+                    ·  第二种属性是eFXSurfaceBlur属性，这种属性的UI有点朦胧美，看起来很像隔着一层毛玻璃。
+
+                    ·  第三种属性是eFXSurfaceDim属性，这种属性的UI看起来有点暗，好像隔了一层深色玻璃。从视觉上讲，虽然它的UI看起来有点暗，但并不模糊。而eFXSurfaceBlur不仅暗，还有些模糊。	
+
+                    （1）FrameBuffer的介绍
+
+					    FrameBuffer的中文名叫帧缓冲，它实际上包括两个不同的方面：
+
+                       ·  Frame：帧，就是指一幅图像。在屏幕上看到的那幅图像就是一帧。
+
+                       ·  Buffer：缓冲，就是一段存储区域，可这个区域存储的是帧。
+
+                          FrameBuffer的概念很清晰，它就是一个存储图形/图像帧数据的缓冲。这个缓冲来自哪里？理解这个问题，需要简单介绍一下Linux平台的虚拟显示设备FrameBuffer Device（简称FBD）。FBD是Linux系统中的一个虚拟设备，
+						  
+						  设备文件对应为/dev/fb%d（比如/dev/fb0）。这个虚拟设备将不同硬件厂商实现的真实设备统一在一个框架下，这样应用层就可以通过标准的接口进行图形/图像的输入和输出了。	
+
+                    （2）PageFlipping
+
+					    图形/图像数据和音频数据不太一样，我们一般把音频数据叫音频流，它是没有边界的, 而图形/图像数据是一帧一帧的，是有边界的。这一点非常类似UDP和TCP之间的区别。所以在图形/图像数据的生产/消费过程中，人们使用了一种叫PageFlipping的技术。
+
+                        PageFlipping的中文名叫画面交换，其操作过程如下所示：
+
+                       ·  分配一个能容纳两帧数据的缓冲，前面一个缓冲叫FrontBuffer，后面一个缓冲叫BackBuffer。
+
+                       ·  消费者使用FrontBuffer中的旧数据，而生产者用新数据填充BackBuffer，二者互不干扰。
+
+                       ·  当需要更新显示时，BackBuffer变成FrontBuffer，FrontBuffer变成BackBuffer。如此循环，这样就总能显示最新的内容了。这个过程很像我们平常的翻书动作，所以它被形象地称为PageFlipping。
+
+                         说白了，PageFlipping其实就是使用了一个只有两个成员的帧缓冲队列，以后在分析数据传输的时候还会见到诸如dequeue和queue的操作。
+
+				  
+				  22 关于WindowManagerService
+				  
+				     1) 总结在客户端创建一个窗口的步骤：
+
+                       ·  获取IWindowSession和WMS实例。客户端可以通过IWindowSession向WMS发送请求。
+
+                       ·  创建并初始化WindowManager.LayoutParams。注意这里是WindowManager下的LayoutParams，它继承自ViewGroup.LayoutParams类，并扩展了一些窗口相关的属性。其中最重要的是type属性。
+					  
+					      这个属性描述了窗口的类型，而窗口类型正是WMS对多个窗口进行ZOrder排序的依据。
+
+                       ·  向WMS添加一个窗口令牌（WindowToken）。本章后续将分析窗口令牌的概念，目前读者只要知道，窗口令牌描述了一个显示行为，并且WMS要求每一个窗口必须隶属于某一个显示令牌。
+
+                      ·  向WMS添加一个窗口。必须在LayoutParams中指明此窗口所隶属于的窗口令牌，否则在某些情况下添加操作会失败。在SampleWindow中，不设置令牌也可成功完成添加操作，
+					     因为窗口的类型被设为TYPE_SYSTEM_ALERT，它是系统窗口的一种。而对于系统窗口，WMS会自动为其创建显示令牌，故无需客户端操心。此话题将会在后文进行更具体的讨论。
+
+                      ·  向WMS申请对窗口进行重新布局（relayout）。所谓的重新布局，就是根据窗口新的属性去调整其Surface相关的属性，或者重新创建一个Surface（例如窗口尺寸变化导致之前的Surface不满足要求）。
+					  
+					    向WMS添加一个窗口之后，其仅仅是将它在WMS中进行了注册而已。只有经过重新布局之后，窗口才拥有WMS为其分配的画布。有了画布，窗口之后就可以随时进行绘制工作了。
+
+                    2) 而窗口的绘制过程如下：
+
+                        ·  通过Surface.lock()函数获取可以在其上作画的Canvas实例。
+
+                        ·  使用Canvas实例进行作画。
+
+                        ·  通过Surface.unlockCanvasAndPost()函数提交绘制结果。
+							  
+							  
 		  六： JAVA 语言类
 		   
 		      1   apt 动态编译
@@ -3213,14 +4307,278 @@ public class Inter {
 
                5、ArrayList主要控件开销在于需要在lList列表预留一定空间；而LinkList主要控件开销在于需要存储结点信息以及结点指针信息。
 
-               6，LinkedList 还实现了队列和栈的实现方法			   
+               6，LinkedList 还实现了队列和栈的实现方法			
+
+             3  LruCache 介绍
+
+               LruCache是个泛型类，主要算法原理是把最近使用的对象用强引用（即我们平常使用的对象引用方式）存储在 LinkedHashMap 中。当缓存满时，把最近最少使用的对象从内存中移除，并提供了get和put方法来完成缓存的获取和添加操作。
+
+               注意点：LinkedHashMap 是放到队尾			   
 			
 		      
 			
 			     
 
 		遗留问题
+		
+		      1  MVVM简介与运用:
+                 
+				 1） MVC框架：
+				  
+				     M-Model : 业务逻辑和实体模型(biz/bean)
 
+				     V-View : 布局文件(XML)
+  
+				     C-Controller : 控制器(Activity)
+				  
+				     相信大家都熟悉这个框架，这个也是初学者最常用的框架，该框架虽然也是把代码逻辑和UI层分离，但是View层能做的事情还是很少的，很多对于页面的呈现还是交由C实现，
+				  
+				     这样会导致项目中C的代码臃肿，如果项目小，代码臃肿点还是能接受的，但是随着项目的不断迭代，代码量的增加，你就会没办法忍受该框架开发的项目，这时MVP框架就应运而生。
+					 
+				 2） MVP框架：
+				 
+				     M-Model : 业务逻辑和实体模型(biz/bean)
+
+					 V-View : 布局文件(XML)和Activity
+
+					 P-Presenter : 完成View和Model的交互
+					 
+					 MVP框架相对于MVC框架做了较大的改变，将Activity当做View使用，代替MVC框架中的C的是P，对比MVC和MVP的模型图可以发现变化最大的是View层和Model层不在直接通信，
+					 
+					 所有交互的工作都交由Presenter层来解决。既然两者都通过Presenter来通信，为了复用和可拓展性，MVP框架基于接口设计的理念大家自然就可以理解其用意。
+
+                     但MVP框架也有不足之处:
+
+                     1.接口过多，一定程度影响了编码效率。
+
+                     2.业务逻辑抽象到Presenter中，较为复杂的界面Activity代码量依然会很多。
+
+                     3.导致Presenter的代码量过大。
+					 
+				 3） MVVM框架：
+
+                      M-Model : 实体模型(biz/bean)
+
+					  V-View : 布局文件(XML)
+
+					  VM-ViewModel : DataBinding所在之处，对外暴露出公共属性，View和Model的绑定器		
+
+					  1.    可重用性。你可以把一些视图逻辑放在一个ViewModel里面，让很多View重用这段视图逻辑。 在Android中，布局里可以进行一个视图逻辑，并且Model发生变化，View也随着发生变化。
+
+                      2.    低耦合。以前Activity、Fragment中需要把数据填充到View，还要进行一些视图逻辑。现在这些都可在布局中完成（具体代码请看后面） 甚至都不需要再Activity、Fragment去findViewById（）。
+					  
+					        这时候Activity、Fragment只需要做好的逻辑处理就可以了。
+					  
+					       下面来比较一下布局与之前大家常用的格式的区别：
+
+                          <?xml version="1.0" encoding="utf-8"?>
+                          <layout xmlns:android="http://schemas.android.com/apk/res/android">
+                            <data>
+                              <variable name="user" type="com.example.User"/>
+                           </data>
+                          <LinearLayout
+                           android:orientation="vertical"
+                           android:layout_width="match_parent"
+                           android:layout_height="match_parent">
+                          <TextView android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@{user.firstName}"/>
+                          <TextView android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@{user.lastName}"/>
+                          </LinearLayout>
+                         </layout>
+						
+					 3  缺点： 1 使用复杂 2 所处理的逻辑问题比较有限  实际情况经常有试图的变化
+					 
+				  2  热补丁Tinker 实现原理
+				   
+				     tinker将old.apk和new.apk做了diff，拿到patch.dex，然后将patch.dex与本机中apk的classes.dex做了合并，生成新的classes.dex，运行时通过反射将合并后的dex文件放置在加载的dexElements数组的前面。
+
+                     运行时替代的原理，其实和Qzone的方案差不多，都是去反射修改dexElements。
+
+                     两者的差异是：Qzone是直接将patch.dex插到数组的前面；而tinker是将patch.dex与app中的classes.dex合并后的全量dex插在数组的前面。
+
+                     tinker这么做的目的还是因为Qzone方案中提到的CLASS_ISPREVERIFIED的解决方案存在问题；而tinker相当于换个思路解决了该问题。
+
+                     接下来我们就从代码中去验证该原理。
+					 
+					 
+					 通用原理：
+					 
+					  重点需要知道的就是，Android的ClassLoader体系，android中加载类一般使用的是PathClassLoader和DexClassLoader，首先看下这两个类的区别：
+					  
+					  PathClassLoader：
+					  
+					    对于PathClassLoader，从文档上的注释来看：可以看出，Android是使用这个类作为其系统类和应用类的加载器。并且对于这个类呢，只能去加载已经安装到Android系统中的apk文件。
+						
+					  DexClassLoader:
+					  
+					    对于DexClassLoader，依然看下注释：可以看出，该类呢，可以用来从.jar和.apk类型的文件内部加载classes.dex文件。可以用来执行非安装的程序代码。
+						
+					Android使用PathClassLoader作为其类加载器，DexClassLoader可以从.jar和.apk类型的文件内部加载classes.dex文件就好了。
+
+                    上面我们已经说了，Android使用PathClassLoader作为其类加载器，那么热修复的原理具体是？
+					
+					   ok，对于加载类，无非是给个classname，然后去findClass，我们看下源码就明白了。 
+
+					   PathClassLoader和DexClassLoader都继承自BaseDexClassLoader。在BaseDexClassLoader中有如下源码：
+					   
+					   
+					   #BaseDexClassLoader
+                               @Override
+                        protected Class<?> findClass(String name) throws ClassNotFoundException {
+                                 Class clazz = pathList.findClass(name);
+
+                              if (clazz == null) {
+                               throw new ClassNotFoundException(name);
+                              }
+
+                            return clazz;
+                             }
+							 
+
+                        #DexPathList
+					    public Class findClass(String name) {
+                          for (Element element : dexElements) {
+                            DexFile dex = element.dexFile;
+
+                           if (dex != null) {
+                            Class clazz = dex.loadClassBinaryName(name, definingContext);
+                           if (clazz != null) {
+                              return clazz;
+                            }
+                            }
+                          }
+
+                         return null;
+                       }
+
+                      #DexFile
+                       public Class loadClassBinaryName(String name, ClassLoader loader) {
+                         return defineClass(name, loader, mCookie);
+                        }
+					   
+                       private native static Class defineClass(String name, ClassLoader loader, int cookie);
+					   
+					   
+					   可以看出呢，BaseDexClassLoader中有个pathList对象，pathList中包含一个DexFile的集合dexElements，而对于类加载呢，就是遍历这个集合，通过DexFile去寻找。
+
+                          ok，通俗点说：
+
+                       一个ClassLoader可以包含多个dex文件，每个dex文件是一个Element，多个dex文件排列成一个有序的数组dexElements，当找类的时候，会按顺序遍历dex文件，
+					   
+					   然后从当前遍历的dex文件中找类，如果找类则返回，如果找不到从下一个dex文件继续查找。(来自：安卓App热补丁动态修复技术介绍)
+					
+					   那么这样的话，我们可以在这个dexElements中去做一些事情，比如，在这个数组的第一个元素放置我们的patch.jar，里面包含修复过的类，这样的话，
+					   
+					   当遍历findClass的时候，我们修复的类就会被查找到，从而替代有bug的类。
+					   
+					   
+					   不过，还存在一个CLASS_ISPREVERIFIED的问题，对于这个问题呢，详见：安卓App热补丁动态修复技术介绍该文有图文详解。
+
+                       ok，对于CLASS_ISPREVERIFIED，还是带大家理一下：
+
+                       根据上面的文章，在虚拟机启动的时候，当verify选项被打开的时候，如果static方法、private方法、构造函数等，其中的直接引用（第一层关系）
+					   
+					   到的类都在同一个dex文件中（是因为在c++代码中会校验 引用者和被引用者是否来自同一个dex,否的话 会抛出异常），那么该类就会被打上CLASS_ISPREVERIFIED标志
+					   
+					   那么，我们要做的就是，阻止该类打上CLASS_ISPREVERIFIED的标志。
+
+                       注意下，是阻止引用者的类，也就是说，假设你的app里面有个类叫做LoadBugClass，再其内部引用了BugClass。发布过程中发现BugClass有编写错误，那么想要发布一个新的BugClass类，
+					   
+					   那么你就要阻止LoadBugClass这个类打上CLASS_ISPREVERIFIED的标志。也就是说，你在生成apk之前，就需要阻止相关类打上CLASS_ISPREVERIFIED的标志了。对于如何阻止，
+					   
+					   上面的文章说的很清楚，让LoadBugClass在构造方法中，去引用别的dex文件，比如：hack.dex中的某个类即可。
+					   
+					   ok，总结下：
+
+                       其实就是两件事：1、动态改变BaseDexClassLoader对象间接引用的dexElements；2、在app打包的时候，阻止相关类去打上CLASS_ISPREVERIFIED标志。
+					  
+					   三、阻止相关类打上CLASS_ISPREVERIFIED标志
+
+					   ok，接下来的代码基本上会通过https://github.com/dodola/HotFix所提供的代码来讲解。
+
+
+					   那么，这里拿具体的类来说：
+
+
+					   大致的流程是：在dx工具执行之前，将LoadBugClass.class文件呢，进行修改，再其构造中添加System.out.println(dodola.hackdex.AntilazyLoad.class)，然后继续打包的流程。注意：AntilazyLoad.class这个类是独立在hack.dex中。
+
+                        ok，这里大家可能会有2个疑问：
+
+                         1 如何去修改一个类的class文件
+                        
+					 	 2 如何在dx之前去进行疑问1的操作
+						 
+						  一.  修改class文件：
+						       
+							   package dodola.hackdex;
+                             
+							   public class AntilazyLoad{
+
+                               }
+
+                              package dodola.hotfix;
+                              public class BugClass {
+                                 public String bug(){
+                                  return "bug class";
+                              }
+                              }
+
+                            package dodola.hotfix;
+                           
+						     public class LoadBugClass
+                            {
+                              public String getBugString(){
+                              BugClass bugClass = new BugClass();
+                             return bugClass.bug();
+                             }
+                             }
+							 
+						   注意下，这里的package，我们要做的是，上述类正常编译以后产生class文件。比如：LoadBugClass.class，我们在LoadBugClass.class的构造中去添加一行：
+
+                             System.out.println(dodola.hackdex.AntilazyLoad.class)
+							 
+							 
+							 package test;
+
+                            import javassist.ClassPool;
+                            import javassist.CtClass;
+                            import javassist.CtConstructor;
+
+                            public class InjectHack
+                              {
+                             public static void main(String[] args)
+                            {
+                           try
+                              {
+                                String path = "/Users/zhy/develop_work/eclipse_android/imooc/JavassistTest/";
+                                ClassPool classes = ClassPool.getDefault();
+                                classes.appendClassPath(path + "bin");//项目的bin目录即可
+                                CtClass c = classes.get("dodola.hotfix.LoadBugClass");
+                                CtConstructor ctConstructor = c.getConstructors()[0];
+                               ctConstructor
+                                  .insertAfter("System.out.println(dodola.hackdex.AntilazyLoad.class);");
+                               c.writeFile(path + "/output");
+                             } catch (Exception e)
+                              {
+                                e.printStackTrace();
+                              }
+
+                               }
+                             
+							}
+							
+						  之所以选择构造函数是因为他不增加方法数，一个类即使没有显式的构造函数，也会有一个隐式的默认构造函数。
+						 
+						   
+					 
+				 3 进程的回收
+
+
+                   Foreground process、Visible process、Service process、Background process、Empty process。				 
+						
 			// 1   心跳机制的了解
 
 			// 2   长连接保活
@@ -3241,7 +4599,7 @@ public class Inter {
 
 			// 47 java容器的学习
 
-			// 遗留问题  deque 以及线程池 SynchronousQueue 实现；
+			 // 遗留问题  deque 以及线程池 SynchronousQueue 实现；
 
 			// 52  项目介绍
 
