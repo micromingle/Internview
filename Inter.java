@@ -4682,6 +4682,275 @@ public class Inter {
 
 			 // linux 移动系统
 
+     五：算法类：
+	 
+	     1  二叉树的概念：
+		 
+		     结点的度：结点拥有的子树的数目
+
+             叶子结点：度为0的结点
+
+             分支结点：度不为0的结点
+
+             树的度：树中结点的最大的度
+
+             层次：根结点的层次为1，其余结点的层次等于该结点的双亲结点的层次加1
+
+             树的高度：树中结点的最大层次
+
+             森林：0个或多个不相交的树组成。对森林加上一个根，森林即成为树；删去根，树即成为森林。
+
+ 
+		 
+		  1）定义：
+		  
+		  二叉树是每个结点最多有两个子树的树结构。它有五种基本形态：二叉树可以是空集；根可以有空的左子树或右子树；
+		  或者左、右子树皆为空。
+		  
+		  2）性质：
+		  
+		  性质1：二叉树第i层上的结点数目最多为2i-1(i>=1)
+
+          性质2：深度为k的二叉树至多有2k-1个结点（k>=1）
+		  
+		  性质3：包含n个结点的二叉树的高度至少为(log2n)+1
+
+          性质4：在任意一棵二叉树中，若终端结点的个数为n0，度为2的结点数为n2，则n0=n2+1
+		  
+		 3）种类
+		 
+		    一 满二叉树
+			
+			   定义：高度为h，并且由2h-1个结点组成的二叉树，称为满二叉树
+
+            
+		    二 完全二叉树
+			
+			   定义：一棵二叉树中，只有最下面两层结点的度可以小于2，并且最下层的叶结点集中在靠左的若干位置上，
+			   
+			   这样的二叉树称为完全二叉树。
+			   
+			   
+			   面试题：如果一个完全二叉树的结点总数为768个，求叶子结点的个数。
+			   
+
+               由二叉树的性质知：n0=n2+1，将之带入768=n0+n1+n2中得：768=n1+2n2+1，因为完全二叉树度为1的结点个数要么为0，
+			   
+			   要么为1，那么就把n1=0或者1都代入公式中，很容易发现n1=1才符合条件。所以算出来n2=383，所以叶子结点个数n0=n2+1=384。
+
+               总结规律：如果一棵完全二叉树的结点总数为n，那么叶子结点等于n/2（当n为偶数时）或者(n+1)/2（当n为奇数时）
+			   
+			3、二叉查找树
+
+               定义：二叉查找树又被称为二叉搜索树。设x为二叉查找树中的一个结点，x结点包含关键字key，
+			   
+			   结点x的key值计为key[x]。如果y是x的左子树中的一个结点，则key[y]<=key[x]；如果y是x的右子树的一个结点，
+			   
+			   则key[y]>=key[x]
+			   
+			   
+			4  平衡二叉树
+			
+			    平衡二叉搜索树（Self-balancing binary search tree）又被称为AVL树（有别于AVL算法），且具有以下性质：
+				
+				它是一 棵空树或它的左右两个子树的高度差的绝对值不超过1，并且左右两个子树都是一棵平衡二叉树。
+			   
+            5  二叉树的遍历：
+			
+			   二叉树的遍历分为以下三种：
+
+               先序遍历：遍历顺序规则为【根左右】
+
+               中序遍历：遍历顺序规则为【左根右】
+
+               后序遍历：遍历顺序规则为【左右根】
+			   
+	 六  视频编解码：
+	 
+	      1 yuv是什么：
+		   
+		     YUV，分为三个分量，“Y”表示明亮度（Luminance或Luma），也就是灰度值；
+			 
+			 而“U”和“V” 表示的则是色度（Chrominance或Chroma），作用是描述影像色彩及饱和度，用于指定像素的颜色。
+			 
+		  2 yuv 的种类：
+		  
+		     YUV格式有两大类：planar和packed。
+  
+             对于planar的YUV格式，先连续存储所有像素点的Y，紧接着存储所有像素点的U，随后是所有像素点的V。
+
+			 对于packed的YUV格式，每个像素点的Y,U,V是连续交*存储的。
+			 
+			 与我们熟知的RGB类似，YUV也是一种颜色编码方法，主要用于电视系统以及模拟视频领域，
+			 
+			 它将亮度信息（Y）与色彩信息（UV）分离，没有UV信息一样可以显示完整的图像，只不过是黑白的，
+			 
+			 这样的设计很好地解决了彩色电视机与黑白电视的兼容问题。并且，YUV不像RGB那样要求三个独立的视频信号
+			 
+			 同时传输，所以用YUV方式传送占用极少的频宽。
+			 
+	      3  常用的格式：
+		  
+		      YUV420 planar数据， 以720×488大小图象YUV420 planar为例，
+
+              所以YUV420 数据在内存中的长度是 width * hight * 3 / 2，
+			  
+			  一般来说，直接采集到的视频数据是RGB24的格式，RGB24一帧的大小size＝width×heigth×3 Bit，
+			  
+			  RGB32的size＝width×heigth×4，如果是I420（即YUV标准格式4：2：0）的数据量是 size＝width×heigth×1.5 Bit。
+
+			  在采集到RGB24数据后，需要对这个格式的数据进行第一次压缩。即将图像的颜色空间由RGB2YUV。
+			  
+			  因为，X264在进行编码的时候需要标准的YUV（4：2：0）。
+			  
+			  
+		  4  H264
+		  
+		     H264是什么？H264是一种视频流的标准，与MP4、FLV等的区别在于，MP4里面可以包含H264信息和
+			 
+			 音频信息和其他的视频的属性信息，所以无论H264放在MP4文件里还是放在FLV里面，H264就是H264，
+			 
+			 是视频的一种格式，就像MP3格式的音频，无论放在MP4文件中还是放在FLV文件中，它都是MP3。
+			 
+			 
+			 预测编码：
+			   
+			      视频描述的是连续的图像的集合。经过大量的统计表明，前后两幅图像中有大量的数据是一样的，
+			 
+			 也就是存在着冗余数据，那么使用当前图像对前一张图像做“减法”，获得两个图像的“差值”。那么只需要“差值”
+			 
+			 即可从前一幅图像中获得当前的图像信息。这个差值我们称之为残差。并且这个差值可以看做是二维数组即看做
+			 
+			 是一个二维矩阵。使用一些数学上的方法对矩阵进行变换达到一定的压缩目的
+			 
+			 
+			 运动估计：
+			 
+			      由于活动图像临近帧中存在一定的相关性，因此将图像分成若干个宏块，并搜索出各个宏块在临近图像中
+				  
+			 的位置。并且得到宏块的相对偏移量。得到的相对偏移量称为运动矢量。得到运动矢量的过程称为运动估计。
+			 
+			 在帧间预测编码中，由于活动图像临近帧中景物存在一定的相关性，因此，可以将活动图像分成若干块或宏块，
+			 
+			 并设法搜索出每个块或宏块在临近帧图像中的位置，并得出亮着之间的控件位置相对偏移量，
+			 
+			 得到的相对偏移量就是通常所指的运动矢量，得到运动矢量的过程被称为运动估计。
+			 
+			 运动矢量和经过匹配后得到的预测误差共同发送到解码端，在解码端按照运动矢量指明的位置，从
+			 
+			 已经解码的临近参考帧图像中找到相应的块或宏块，和预测误差相加后就得到了块或宏块在当前帧中的位置。
+			 
+			 通过运动估计可以去除帧间的冗余度，使得视频传输的比特数大为减少，因此运动估计是视频压缩处理的一个重要组成部分。
+
+          5  AwesomePlayer 播放原理
+
+               1） AwesomeEvent这个是同步相应的事件而做的一个类,跟framework层的looper和handler作用相似,
+			   
+			   player有一些异步操作比如解析文件,这些操作比较耗时,做异步操作然后做回调会有更好的用户体验
+			   
+			   structAwesomeEvent:publicTimedEventQueue::Event 
+
+              
+               2） DataSourceInput   --->  Extractor (VideoSource) ---> Decoder (Video Sourece)	
+
+                   ---> VideoRender（AwesomeRenderer）  ---> Surface (ISurface)
+
+				
+               3)  播放流程详细版
+
+                   3.1 设置数据源URI
+
+                        status_t AwesomePlayer::setDataSource_l(  
+        
+                    	const char *uri, const KeyedVector<String8, String8> *headers) {  
+    
+	                      /// 这里只是把URL保存起来而已, 真正的工作在Prepare之后进行  
+                                      mUri = uri;  
+                                  return OK;  
+                        } 				   
+		  
+		           3.2   开启定时器队列,并且 Post一个AsyncPrepareEvent 事件
+				   
+				         status_t AwesomePlayer::prepareAsync_l() {  
+ 
+                            /// 开启定时器队列  
+                            mQueue.start();  
+ 
+                            /// Post AsyncPrepare 事件  
+                            mAsyncPrepareEvent = new AwesomeEvent(  
+           
+                    		this, &AwesomePlayer::onPrepareAsyncEvent);  
+ 
+                            mQueue.postEvent(mAsyncPrepareEvent);  
+                         
+						     return OK;  
+                         }  
+			
+
+                   3.3   AsyncPrepare 事件被触发
+				   
+				           当这个事件被触发时, AwesomePlayer 开始创建 VideoTrack和AudioTrack , 然后创建
+
+						   VideoDecoder和AudioDecoder
+
+                              void AwesomePlayer::onPrepareAsyncEvent() {  
+    
+	                           /// a. 创建视频源和音频源  
+                              finishSetDataSource_l();  
+ 
+                              /// b. 创建视频解码器  
+                              initVideoDecoder();  
+ 
+                               /// c. 创建音频解码器  
+                              initAudioDecoder();  
+                            } 
+							
+							至此,播放器准备工作完成, 可以开始播放了
+
+                   3.4   Post 第一个VideoEvent
+				   
+				         AwesomePlayer::play() 调用 -> AwesomePlayer::play_l() 调用 -> AwesomePlayer::postVideoEvent_l
+						 
+						 (int64_t delayUs)  
+						 
+						 
+						 void AwesomePlayer::postVideoEvent_l(int64_t delayUs) {  
+    
+	                         mQueue.postEventWithDelay(mVideoEvent, delayUs < 0 ? 10000 : delayUs); 
+
+                 		}  
+
+   				   3.5	VideoEvent 被触发
+
+                         void AwesomePlayer::onVideoEvent() {  
+ 
+                             /// 从视频解码器中读出视频图像  
+                             mVideoSource->read(&mVideoBuffer, &options);  
+ 
+                             /// 创建AwesomeRenderer (如果没有的话)  
+                             if (mVideoRendererIsPreview || mVideoRenderer == NULL) {  
+                                initRenderer_l();  
+                             }  
+ 
+                             /// 渲染视频图像  
+                             mVideoRenderer->render(mVideoBuffer);  
+ 
+                             /// 再次发送一个VideoEvent, 这样播放器就不停的播放了  
+                             postVideoEvent_l();  
+                            
+							}  		
+
+                          总结: SetDataSource -> Prepare -> Play -> postVieoEvent -> OnVideoEvent 
+				  
+				                -> postVideoEvent-> .... onVideoEvent-> postStreamDoneEvent -> 播放结束							
+
+
+
+
+      
+
+
+
 
 
 
