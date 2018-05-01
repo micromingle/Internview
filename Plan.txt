@@ -1,0 +1,23 @@
+0  算法（默写）
+
+1  自定义View
+
+2  TCP/Http/Https
+
+3  多线程
+
+4  java虚拟机
+
+5  内存优化
+
+6  讲一个故事
+
+7  OpenGlEs
+
+8  Activity启动流程
+
+9  动态补丁
+
+10 单元测试
+
+11 网络框架/glide/okhttp
