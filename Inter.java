@@ -62,7 +62,64 @@ public class Inter {
 　　　　　　　　　，这样服务端就无法关闭连接。假如等待两个ｍｓｌ周期，服务端发现没有响应，就会重新发送ＦＩＮ指令，再次进入ＬＡＳＴ＿ＡＣＫ状态，
             　　此时客户端可以响应，后台手段响应正常关闭
 
-             //滑动窗口控制 怎么验证数据顺序是否在正确；？？
+             1） 滑动窗口控制 怎么验证数据顺序是否在正确：
+			 
+			     参考地址：https://coolshell.cn/articles/11564.html
+				 
+				           https://www.zhihu.com/question/32255109
+						   
+				 1)TCP滑动窗口分为接受窗口，发送窗口
+
+				   滑动窗口协议是传输层进行流控的一种措施，接收方通过通告发送方自己的窗口大小，从而控制发送方的发送速度，
+				 
+				   从而达到防止发送方发送速度过快而导致自己被淹没的目的。
+				   
+				       一 是期望接收到的下一字节的序号n，该n代表接收方已经接收到了前n-1字节数据，此时如果接收方收到第n+1
+				   
+				   字节数据而不是第n字节数据，接收方是不会发送序号为n+2的ACK的。举个例子，假如接收端收到1-1024字节，它会发送一个确认号为1025的ACK,
+				   
+				   但是接下来收到的是2049-3072，它是不会发送确认号为3072的ACK,而依旧发送1025的ACK。
+				   
+				      二  是当前的窗口大小m，如此发送方在接收到ACK包含的这两个数据后就可以计算出还可以发送多少字节的数据给对方，
+					 
+				  假定当前发送方已发送到第x字节，则可以发送的字节数就是y=m-(x-n).这就是滑动窗口控制流量的基本原理
+				  
+				  TCP的Window是一个16bit位字段，它代表的是窗口的字节容量，也就是TCP的标准窗口最大为2^16-1=65535个字节。
+				  
+				  另外在TCP的选项字段中还包含了一个TCP窗口扩大因子，option-kind为3，option-length为3个字节，option-data取值范围0-14。
+				  
+				  窗口扩大因子用来扩大TCP窗口，可把原来16bit的窗口，扩大为31bit。
+
+
+				  
+				  
+				     三  TCP的滑动窗口主要有两个作用，一是提供TCP的可靠性，二是提供TCP的流控特性。
+				   
+				  同时滑动窗口机制还体现了TCP面向字节流的设计思路。TCP 段中窗口的相关字段。
+					
+					TCP是双工的协议，会话的双方都可以同时接收、发送数据。TCP会话的双方都各自维护一个“发送窗口”和一个“接收窗口”。
+					
+					其中各自的“接收窗口”大小取决于应用、系统、硬件的限制（TCP传输速率不能大于应用的数据处理速率）。
+					
+					各自的“发送窗口”则要求取决于对端通告的“接收窗口”，要求相同。
+					
+					四  滑动窗口实现面向流的可靠性
+					
+					    1）最基本的传输可靠性来源于“确认重传”机制。
+					
+					    2）TCP的滑动窗口的可靠性也是建立在“确认重传”基础上的。
+						
+						3）发送窗口只有收到对端对于本段发送窗口内字节的ACK确认，才会移动发送窗口的左边界。
+						
+						4）接收窗口只有在前面所有的段都确认的情况下才会移动左边界。当在前面还有字节未接收但收到后面字节的情况下，
+						
+						   窗口不会移动，并不对后续字节确认。以此确保对端会对这些数据重传。
+
+
+
+
+
+
 			 
 			 
          2  https 握手过程
@@ -75,7 +132,7 @@ public class Inter {
 			 
 		 3  开源框架介绍Retrofit2 介绍
 			  一： Retrofit 组成部分，使用先定义一个接口
-			  1) 注解部分 包含请求方法如POST,GET,查询参数 QUERY  请求头HEADERS
+			  1) 注解部分 包含请求方法如POST,GET,查询参数 QUERY  请求头HEADERS（注解是RunTime类型）
 			  2) 网络请求部分  使用okhttp
 			  3) 请求处理部分，加入converter，支持gson,xml,protobuffer
 			  4) RequestBuilder 类,用于构建请求
@@ -270,8 +327,9 @@ public class Inter {
 				
 				  1） Http 1.1 和Http1.0 区别：
 
-                    1、缓存处理，在HTTP1.0中主要使用header里的If-Modified-Since,Expires来做为缓存判断的标准，HTTP1.1则引入了更多的缓存控制策略例如Entity tag，If-Unmodified-Since, 
-				      If-Match, If-None-Match等更多可供选择的缓存头来控制缓存策略。
+                    1、缓存处理，在HTTP1.0中主要使用header里的If-Modified-Since,Expires来做为缓存判断的标准，HTTP1.1则引入了更多的缓存控制策略例如Entity tag，
+					
+				  	If-Unmodified-Since, If-Match, If-None-Match等更多可供选择的缓存头来控制缓存策略。
 
                     2、带宽优化及网络连接的使用，HTTP1.0中，存在一些浪费带宽的现象，例如客户端只是需要某个对象的一部分，而服务器却将整个对象送过来了，并且不支持断点续传功能，
 				      HTTP1.1则在请求头引入了range头域，它允许只请求资源的某个部分，即返回码是206（Partial Content），这样就方便了开发者自由的选择以便于充分利用带宽和连接。
@@ -1469,7 +1527,8 @@ public class Inter {
                          ReentrantLock获取锁定与三种方式：
                          a) lock(), 如果获取了锁立即返回，如果别的线程持有锁，当前线程则一直处于休眠状态，直到获取锁
                          b) tryLock(), 如果获取了锁立即返回true，如果别的线程正持有锁，立即返回false；
-                         c)tryLock(long timeout,TimeUnit unit)， 如果获取了锁定立即返回true，如果别的线程正持有锁，会等待参数给定的时间，在等待的过程中，如果获取了锁定，就返回true，如果等待超时，返回false；
+                         c)tryLock(long timeout,TimeUnit unit)， 如果获取了锁定立即返回true，如果别的线程正持有锁，会等待参数给定的时间，在等待的过程中，如果获取了锁定，
+						 就返回true，如果等待超时，返回false；
                          d) lockInterruptibly:如果获取了锁定立即返回，如果没有获取锁定，当前线程处于休眠状态，直到或者锁定，或者当前线程被别的线程中断
 
                      2、 synchronized是在JVM层面上实现的，不但可以通过一些监控工具监控synchronized的锁定，而且在代码执行时出现异常，
@@ -1557,10 +1616,13 @@ public class Inter {
                             }
     
 						    
-							1  先排队 排队的时候new一个线程 然后执行runnable（这个run方法其实是FutureTask的run方法） 的run方法 --》如果没有任务在执行，从队列中取出到THREAD_POOL_EXECUTOR执行，
+							1  先排队 排队的时候new一个线程 然后执行runnable（这个run方法其实是FutureTask的run方法） 的run方法 --》如果没有任务在执行，
 							
-							   每条线程执行完以后 会finally 一下scheduleNext 执行下一条任务， 执行顺序是FutureTask.run  --> WorkRunnable.call -->  执行doInbackground方法 此时内部自己实现 publishProgress方法
-						        --》执行完成后，通过handler 发送出来---》onPostExecute 方法；
+							   从队列中取出到THREAD_POOL_EXECUTOR执行，每条线程执行完以后 会finally 一下scheduleNext 执行下一条任务， 执行顺序是FutureTask.run  --> 
+							
+							   WorkRunnable.call -->  执行doInbackground方法 此时内部自己实现 publishProgress方法
+						      
+							    --》执行完成后，通过handler 发送出来---》onPostExecute 方法；
 							
 							  
 							 
@@ -1990,10 +2052,22 @@ public class Inter {
                 ActivityManagerServices，简称AMS，服务端对象，负责系统中所有Activity的生命周期
                 ActivityThread，App的真正入口。当开启App之后，会调用main()开始运行，开启消息循环队列，这就是传说中的
                 UI线程或者叫主线程。与ActivityManagerServices配合，一起完成Activity的管理工作
-                ApplicationThread，用来实现ActivityManagerService与ActivityThread之间的交互。在ActivityManagerService
-                需要管理相关Application中的Activity的生命周期时，通过ApplicationThread的代理对象与ActivityThread通讯。
-               ApplicationThreadProxy，是ApplicationThread在服务器端的代理，负责和客户端的ApplicationThread通讯。
-                AMS就是通过该代理与ActivityThread进行通信的。
+				
+				AMS在跨进程通信过程中，既可以当客户端，也可以端服务端：
+				
+			    1) App和AMS通信的时候：
+				
+				   App 是客户端  -----》代理对象ActivityManagerProxy  --->Binder 驱动 -----》AMS 服务端
+				   
+				   客户端请求的时候会调用ActivityManagerProxy实现的IActivityManager的接口 来发送请求
+				   
+				2）AMS 通知APP 事件的时候
+
+                   AMS是客户端  -----》 代理对象ApplicationThreadProxy ---->Binder 驱动 -----》ActivityThread 服务端			
+				
+                   AMS 通知客户端的时候ApplicationThreadProxy实现的IApplicationThread 来schedule 方法来操作，然后在
+				   
+				   ActivityThread 里的Handler 来发送消息 来让Instrument 做dirty work;
 
                 Instrumentation，每一个应用程序只有一个Instrumentation对象，每个Activity内都有一个对该对象的引用。
                 Instrumentation可以理解为应用进程的管家，ActivityThread要创建或暂停某个Activity时，都需要通过Instrumentation来进行具体的操作。
@@ -2010,7 +2084,7 @@ public class Inter {
 
                  这里的ActivityManagerNative.getDefault返回的就是ActivityManagerService的远程接口，即ActivityManagerProxy。都实现了
                  IActivityManager 接口
-                  客户端：ApplicationThread <=====Binder驱动<===== ApplicationThreadProxy：服务器，都实现了IApplicationThread方法。
+				 
 				  
 			 12  Activity 4 种启动模式
 
@@ -2089,10 +2163,10 @@ public class Inter {
 					
 					 2）我们一般会在Activity 的onCreate 方法里调用
 					添加fragment 的代码，先getFragmentManager,然后在beginTransaction, beginTraction是开启一个事务，这个事务是
-					BackStackRecord, 实现了runnable的接口，
+					BackStackRecord, 实现了runnable的接口,继承了FragmentTransaction，
 					
 					 3）然后调用replace 的方法， 这个时候会生成一个操作节点，叫Op，op里面有一个cmd
-				    字段表示操作节点,再把op插入到一个双向链表里，
+				    字段表示操作节点,再把op插入到list里，
 					
 					 4）然后commit, commit 会执行BackStackRecord 的run方法， run方法里面，调用
 				     moveToState，该方法内会根据操作的类型，以及Fragment 当前的状态执行相应生命周期的方法，当state 是Initializing 的话
@@ -2154,7 +2228,7 @@ public class Inter {
 					  
 					  ActivityThread类中有一个handleLaunchActivity函数，它就是创建Activity的地方。一起来看这个函数，代码如下所示：
 					  
-					  private final voidhandleLaunchActivity(ActivityRecord r, Intent customIntent) {
+					  private final void handleLaunchActivity(ActivityRecord r, Intent customIntent) {
 
                             //①performLaunchActivity返回一个Activity
 
@@ -2261,7 +2335,9 @@ public class Inter {
 
                         ·  调用Activity的onCreate函数，开始SDK中大书特书Activity的生命周期。
 
-                           那么，在onCreate函数中，我们一般会做什么呢？在这个函数中，和UI相关的重要工作就是调用setContentView来设置UI的外观。接下去，需要看handleLaunchActivity中第二个关键函数handleResumeActivity。
+                           那么，在onCreate函数中，我们一般会做什么呢？在这个函数中，和UI相关的重要工作就是调用setContentView来设置UI的外观。接下去，
+						   
+						   需要看handleLaunchActivity中第二个关键函数handleResumeActivity。
 						   
 						   
 						 2. 分析handleResumeActivity  
@@ -2288,7 +2364,7 @@ public class Inter {
 
                                 //②获得ViewManager对象
 
-                                 ViewManagerwm = a.getWindowManager();
+                                 ViewManager wm = a.getWindowManager();
 
                                   ......
 
@@ -2595,7 +2671,7 @@ public class Inter {
 
                                       [-->Window.java::LocalWindowManager定义]
 
-                                      private class LocalWindowManager implementsWindowManager {
+                                      private class LocalWindowManager implements WindowManager {
 
                                              LocalWindowManager(WindowManager wm) {
 
@@ -4422,7 +4498,7 @@ public class Inter {
                           </LinearLayout>
                          </layout>
 						
-					 3  缺点： 1 使用复杂 2 所处理的逻辑问题比较有限  实际情况经常有试图的变化
+					 3  缺点： 1 使用复杂 2 所处理的逻辑问题比较有限  实际情况经常有视图的变化
 					 
 				  2  热补丁Tinker 实现原理
 				   
