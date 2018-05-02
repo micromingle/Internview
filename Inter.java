@@ -4765,7 +4765,7 @@ public class Inter {
 
                后序遍历：遍历顺序规则为【左右根】
 			   
-	 六  视频编解码：
+	 六  视频编解码/相机：
 	 
 	      1 yuv是什么：
 		   
@@ -4946,10 +4946,41 @@ public class Inter {
 
 
 
-
+          6   滤镜的实现：
+		  
+		      两种实现：
+			  
+			  1） gpuimage 的实现：
+			  
+			       将相机回传的yuv420 由natvie library 转成 rgb, 再交给GlSurfaceView 来渲染纹理
+			  
+			       GPUImageNativeLibrary.YUVtoRBGA(data, previewSize.width, previewSize.height,
+                            mGLRgbBuffer.array());
+                   mGLTextureId = OpenGlUtils.loadTexture(mGLRgbBuffer, previewSize, mGLTextureId);
+                   camera.addCallbackBuffer(data);
+				   
+				   缺点：yuv 转 rgb 由cpu实现计算量太大，反映不够快
       
+	          2） CameraFilter 实现
+              
+			       由opengl es 创建一个textureId 然后赋值给SurfaceTexture, 然后再将这个surfaceTexture 传给camera展示
+				   
+				    // Create texture for camera preview
+                   cameraTextureId = MyGLUtils.genTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES);
+                   cameraSurfaceTexture = new SurfaceTexture(cameraTextureId);
 
-
+                   // Start camera preview
+                   try {
+                     camera.setPreviewTexture(cameraSurfaceTexture);
+                     camera.startPreview();
+                      } catch (IOException ioe) {
+                    // Something bad happened
+                   }
+				   
+				   然后再在onDrawFrame 里 调用surfaceTexture.updateTexImage 来刷新界面
+				   
+				   优点：Gpu实现 快速高效
+                  
 
 
 
