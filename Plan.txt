@@ -12,6 +12,31 @@
 
 6  讲一个故事
 
+    需求是什么： 主副屏同步显示
+	
+	
+	    1  传输方案的尝试：
+		
+                	1）直播 不够快，配置困难
+                    
+                    2）串口 数据量太小 太慢
+
+                    3）tcp/udp 数据 可以/影响不大
+
+        2   显示方案
+					
+				   1）刚开始用ImageView 显示太慢  // skia  内存大 但是会频繁回收
+				   
+				   2）在natvie 层，直接把yuv数据转成rgb 以后直接去更新surface,
+				       
+					   缺点： 1  yuv 转成 rgb cpu 计算量太大 太慢
+					   
+				   3）opengl es 用shader language 把yuv 转成 rgb 然后渲染纹理
+				   
+				      充分利用gpu 显示快 流畅
+               
+                 				 
+
 7  OpenGlEs
 
 8  Activity启动流程

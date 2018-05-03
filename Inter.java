@@ -1003,7 +1003,7 @@ public class Inter {
 						
 					 2）newSingleThreadPool 核心线程数和最大核心数都只有一个，执行LinkedBlockingQueue;
 
-					 3) newCachedThreadPool 核心线程数0，最大线程数没有限制，任务执行完成后，60秒后会自动退出
+					 3）newCachedThreadPool 核心线程数0，最大线程数没有限制，任务执行完成后，60秒后会自动退出
 						执行线程SynchronousQueue,这个策略比较特殊他并没有把任务加入队列中，而是来一个创建一个
 
 					 4）scheduledThreadExecutor 执行定时任务 ，采用DelayWorkerQueue 策略；
@@ -1338,6 +1338,7 @@ public class Inter {
 					  
 					  实现原理和CountDownLatch 有所不同，CountDownLatch 是通过继承aqs 来自定义同步器的，但是CyclicBarrier
 					  则是通过ReentrantLock 和 condition类来实现
+					  
 					  * class Solver {
                       *   final int N;
                       *   final float[][] data;
@@ -1563,7 +1564,7 @@ public class Inter {
 				    一般用于线程是否执行完，cancel,get 执行结果
 					
 					SERIAL_EXECUTOR  用于排队；队列 入队offer  出队poll;
-					THREAD_POOL_EXECUTOR 用于执行任务
+					THREAD_POOL_EXECUTOR 用于执行任务  
 					
 					各个版本的区别：
 					
@@ -1583,6 +1584,9 @@ public class Inter {
 							 THREAD_POOL_EXECUTOR： 用于任务的执行 ，核心线程数：根据CPU核心数，至少两个，最多四个，最好可以比cpu核心数少1，以免占满cpu
 				                                           最大线程数 核心数的2倍加一，存活时间30秒；
 				                                     排队策略：LInkedBlockQUeue,最多128个等待线程
+							ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(
+                                                           
+														   CORE_POOL_SIZE, MAXIMUM_POOL_SIZE, KEEP_ALIVE_SECONDS, TimeUnit.SECONDS,sPoolWorkQueue, sThreadFactory);
 													 
 						     当new AsyncTask 的时候 WorkRunnable 会实例化  ， FutureTask 会实例化mFutureTask，并把workrunnable 作为实例传进来
 							 
@@ -3290,6 +3294,7 @@ public class Inter {
                   2、Extended Loader（标准扩展类加载器ExtClassLoader）：加载System.getProperty("java.ext.dirs")所指定的路径或jar。
 				     在使用Java运行程序时，也可以指定其搜索路径，例如：java -Djava.ext.dirs=d:\projects\testproj\classes HelloWorld
 				
+				  1、命令行启动应用时候由JVM初始化加载
 				  1、命令行启动应用时候由JVM初始化加载
                   2、通过Class.forName()方法动态加载
                   3、通过ClassLoader.loadClass()方法动态加载
