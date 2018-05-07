@@ -3534,6 +3534,11 @@ public class Inter {
 					 同样不会直接从通道中读取字节，而是将数据从通道读入缓冲区，再从缓冲区获取这个字节。
                      在NIO中，提供了多种通道对象，而所有的通道对象都实现了Channel接口。
 					 
+					 FileChannel：一个用来写、读、映射和操作文件的通道
+                     DatagramChannel：能通过 UDP 读写网络中的数据
+                     SocketChannel: 能通过 TCP 读写网络中的数据
+                     ServerSocketChannel：可以监听新进来的 TCP 连接，像 Web 服务器那样。对每一个新进来的连接都会创建一个 SocketChannel
+					 
 					 3）使用NIO读取数据
 					 
                      在前面我们说过，任何时候读取数据，都不是直接从通道读取，而是从通道读取到缓冲区。所以使用NIO读取数据可以分为下面三个步骤： 
@@ -3566,6 +3571,142 @@ public class Inter {
                              }  
                      }  
 					 
+					 4）多路复用器 Selector：
+
+                        多路复用器 Selector，它是 Java NIO 编程的基础，它提供了选择已经就绪的任务的能力。从底层来看，Selector 提供了询问通道是否已经
+						准备好执行每个 I/O 操作的能力。简单来讲，Selector 会不断地轮询注册在其上的 Channel，如果某个 Channel 上面发生了读或者写事件，
+						这个 Channel 就处于就绪状态，会被 Selector 轮询出来，然后通过 SelectionKey 可以获取就绪 Channel 的集合，进行后续的 I/O 操作。
+						
+						Selector 允许一个线程处理多个 Channel ，也就是说只要一个线程复杂 Selector 的轮询，就可以处理成千上万个 Channel ，相比于多
+						线程来处理势必会减少线程的上下文切换问题。下图是一个 Selector 连接三个 Channel 
+						
+						public class NIOServer {
+
+                             /*接受数据缓冲区*/
+                             private ByteBuffer sendbuffer = ByteBuffer.allocate(1024);
+                             /*发送数据缓冲区*/
+                             private  ByteBuffer receivebuffer = ByteBuffer.allocate(1024);
+
+                             private Selector selector;
+
+                             public NIOServer(int port) throws IOException {
+                                 // 打开服务器套接字通道
+                                 ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
+                                 // 服务器配置为非阻塞
+                                 serverSocketChannel.configureBlocking(false);
+                                 // 检索与此通道关联的服务器套接字
+                                 ServerSocket serverSocket = serverSocketChannel.socket();
+                                 // 进行服务的绑定
+                                 serverSocket.bind(new InetSocketAddress(port));
+                                 // 通过open()方法找到Selector
+                                 selector = Selector.open();
+                                 // 注册到selector，等待连接
+                                 serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
+                                 System.out.println("Server Start----:");
+                                }
+
+    //
+                            private void listen() throws IOException {
+                                 while (true) {
+                                 selector.select();
+                                 Set<SelectionKey> selectionKeys = selector.selectedKeys();
+                                 Iterator<SelectionKey> iterator = selectionKeys.iterator();
+                                 while (iterator.hasNext()) {
+                                    SelectionKey selectionKey = iterator.next();
+                                    iterator.remove();
+                                    handleKey(selectionKey);
+                                  }
+                                 }
+                            }
+
+                            private void handleKey(SelectionKey selectionKey) throws IOException {
+                                 // 接受请求
+                                 ServerSocketChannel server = null;
+                                 SocketChannel client = null;
+                                 String receiveText;
+                                 String sendText;
+                                 int count=0;
+                                 // 测试此键的通道是否已准备好接受新的套接字连接。
+                                 if (selectionKey.isAcceptable()) {
+                                     // 返回为之创建此键的通道。
+                                     server = (ServerSocketChannel) selectionKey.channel();
+                                     // 接受到此通道套接字的连接。
+                                     // 此方法返回的套接字通道（如果有）将处于阻塞模式。
+                                     client = server.accept();
+                                     // 配置为非阻塞
+                                     client.configureBlocking(false);
+                                     // 注册到selector，等待连接
+                                     client.register(selector, SelectionKey.OP_READ);
+                                 } else if (selectionKey.isReadable()) {
+                                     // 返回为之创建此键的通道。
+                                     client = (SocketChannel) selectionKey.channel();
+                                     //将缓冲区清空以备下次读取
+                                     receivebuffer.clear();
+                                     //读取服务器发送来的数据到缓冲区中
+                                     count = client.read(receivebuffer);
+                                     if (count > 0) {
+                                       receiveText = new String( receivebuffer.array(),0,count);
+                                       System.out.println("服务器端接受客户端数据--:"+receiveText);
+                                       client.register(selector, SelectionKey.OP_WRITE);
+                                    }
+                                } else if (selectionKey.isWritable()) {
+                                     //将缓冲区清空以备下次写入
+                                     sendbuffer.clear();
+                                     // 返回为之创建此键的通道。
+                                     client = (SocketChannel) selectionKey.channel();
+                                     sendText="message from server--";
+                                     //向缓冲区中输入数据
+                                     sendbuffer.put(sendText.getBytes());
+                                     //将缓冲区各标志复位,因为向里面put了数据标志被改变要想从中读取数据发向服务器,就要复位
+                                     sendbuffer.flip();
+                                     //输出到通道
+                                     client.write(sendbuffer);
+                                     System.out.println("服务器端向客户端发送数据--："+sendText);
+                                     client.register(selector, SelectionKey.OP_READ);
+                                }
+                            }
+
+						5） NIO VS IO
+						
+						     1) 概述
+							 
+                                Java NIO提供了与标准IO不同的IO工作方式： 
+
+							    Channels and Buffers（通道和缓冲区）：标准的IO基于字节流和字符流进行操作的，而NIO是基于通道（Channel）和缓冲区（Buffer）进行操作，
+							    数据总是从通道读取到缓冲区中，或者从缓冲区写入到通道中。
+							  
+                                Asynchronous IO（异步IO）：Java NIO可以让你异步的使用IO，例如：当线程从通道读取数据到缓冲区时，线程还是可以进行其他事情。当数据被写入到缓冲区时，
+							    线程可以继续处理它。从缓冲区写入通道也类似。
+
+							    Selectors（选择器）：Java NIO引入了选择器的概念，选择器用于监听多个通道的事件（比如：连接打开，数据到达）。因此，单个的线程可以监听多个数据通道。
+							  
+							 2) NIO vs IO之间的理念上面的区别（NIO将阻塞交给了后台线程执行）
+
+							    》IO是面向流的，NIO是面向缓冲区的
+
+							        Java IO面向流意味着每次从流中读一个或多个字节，直至读取所有字节，它们没有被缓存在任何地方；
+
+								    NIO则能前后移动流中的数据，因为是面向缓冲区的
+
+								》IO流是阻塞的，NIO流是不阻塞的
+								
+                                    Java IO的各种流是阻塞的。这意味着，当一个线程调用read() 或 write()时，该线程被阻塞，直到有一些数据被读取，
+									
+									或数据完全写入。该线程在此期间不能再干任何事情了
+
+									Java NIO的非阻塞模式，使一个线程从某通道发送请求读取数据，但是它仅能得到目前可用的数据，如果目前没有数据可用时，
+									
+									就什么都不会获取。NIO可让您只使用一个（或几个）单线程管理多个通道（网络连接或文件），但付出的代价是解析数据可能
+									
+									会比从一个阻塞流中读取数据更复杂。 非阻塞写也是如此。一个线程请求写入一些数据到某通道，但不需要等待它完全写入，
+									
+									这个线程同时可以去做别的事情。
+
+								》选择器
+
+								    Java NIO的选择器允许一个单独的线程来监视多个输入通道，你可以注册多个通道使用一个选择器，然后使用一个单独的线程来“选择”通道：
+									
+									这些通道里已经有可以处理的输入，或者选择已准备写入的通道。这种选择机制，使得一个单独的线程很容易来管理多个通道。
 				  
 				 8  java 内部类
 				   
