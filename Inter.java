@@ -1832,6 +1832,20 @@ public class Inter {
 		        
 				重点：MessageQueue  存储方式单向链表    Looper : 可以是主的looper （Handler） 也可以是非主的looper(HandlerThread);
 				
+				1) 多个线程可以有一个looper 但是一个线程只能有一个looper
+				
+				    原因如下：
+					
+					   private static void prepare(boolean quitAllowed) {
+       
+                      	   if (sThreadLocal.get() != null) {
+                               throw new RuntimeException("Only one Looper may be created per thread");
+                            }
+                             sThreadLocal.set(new Looper(quitAllowed));
+                       }
+
+				      //ThreadLocal 的原因
+				
 				      
 		   11   ListView和RecyclerView的区别缓存机制:
 		   
@@ -2185,6 +2199,107 @@ public class Inter {
                    方式 1）双方可以互调 web可以调Android代码，android可以通过webview.loadUrl 方式调用web方法
 
                    方式 2）只能web调用android
+				   
+				   3) JavaScriptInterface 注入漏洞
+				      
+					   通过JavaScript，可以访问当前设备的SD卡上面的任何东西，甚至是联系人信息，短信等。这很恶心吧，嘎嘎。好，我们一起来看看是怎么出现这样的错误的。
+					   可以去看看乌云平台上的这个bug描述：猛点这里
+
+					   1，WebView添加了JavaScript对象，并且当前应用具有读写SDCard的权限，也就是：android.permission.WRITE_EXTERNAL_STORAGE
+
+					   2，JS中可以遍历window对象，找到存在“getClass”方法的对象的对象，然后再通过反射的机制，得到Runtime对象，然后调用静态方法来执行一些命令，比如访问文件的命令.
+
+					   3，再从执行命令后返回的输入流中得到字符串，就可以得到文件名的信息了。然后想干什么就干什么，好危险。核心JS代码如下：
+					   
+					          function execute(cmdArgs){  
+                             
+							  for (var obj in window) {  
+                                 if ("getClass" in window[obj]) {  
+                                     alert(obj);  
+                                 return  window[obj].getClass().forName("java.lang.Runtime")  
+                                   .getMethod("getRuntime",null).invoke(null,null).exec(cmdArgs);  
+                                 }  
+                               }  
+                           } 
+						   
+						  简单说明一下
+
+						   1，请看execute()这个方法，它遍历所有window的对象，然后找到包含getClass方法的对象，利用这个对象的类，找到java.lang.Runtime对象，然后调用“getRuntime”静态方法方法得到Runtime的实例，再调用exec()方法来执行某段命令。
+
+						   2，getContents()方法，从流中读取内容，显示在界面上。
+
+						   3，关键的代码就是以下两句
+
+                                return window[obj].getClass().forName("java.lang.Runtime").  
+                                    getMethod("getRuntime",null).invoke(null,null).exec(cmdArgs);  
+									
+						   4   解决方案
+						       
+							    1） Android 4.2以上的系统
+
+						          在Android 4.2以上的，google作了修正，通过在Java的远程方法上面声明一个@JavascriptInterface，如下面代码：
+								
+								   class JsObject {
+                                       @JavascriptInterface
+   
+                                       public String toString() { return "injectedObject"; }
+                                    }
+								   
+							   2） 2，Android 4.2以下的系统
+
+							       这个问题比较难解决，但也不是不能解决。
+                              
+ 							       首先，我们肯定不能再调用addJavascriptInterface方法了。关于这个问题，最核心的就是要知道JS事件这一个动作，JS与Java进行交互我们知道，
+								  
+								   有以下几种，比prompt, alert等，这样的动作都会对应到WebChromeClient类中相应的方法，对于prompt，它对应的方法是onJsPrompt方法，这个方法的声明如下：
+								   
+								    public boolean onJsPrompt(WebView view, String url, String message,   
+  
+                                               String defaultValue, JsPromptResult result)  
+											   
+								    通过这个方法，JS能把信息（文本）传递到Java，而Java也能把信息（文本）传递到JS中，通知这个思路我们能不能找到解决方案呢？
+
+									经过一番尝试与分析，找到一种比较可行的方案，请看下面几个小点：
+
+									【1】让JS调用一个Javascript方法，这个方法中是调用prompt方法，通过prompt把JS中的信息传递过来，这些信息应该是我们组合成的一段有意义的文本，
+									
+									     可能包含：特定标识，方法名称，参数等。在onJsPrompt方法中，我们去解析传递过来的文本，得到方法名，参数等，再通过反射机制，
+										 
+										 调用指定的方法，从而调用到Java对象的方法。
+
+								    【2】关于返回值，可以通过prompt返回回去，这样就可以把Java中方法的处理结果返回到Js中。
+
+									【3】我们需要动态生成一段声明Javascript方法的JS脚本，通过loadUrl来加载它，从而注册到html页面中，具体的代码如下：
+									
+									      javascript:(function JsAddJavascriptInterface_(){  
+    
+                                             	if (typeof(window.jsInterface)!='undefined') {     
+												
+                                                   console.log('window.jsInterface_js_interface_name is exist!!');
+												} else {  
+                                                      window.jsInterface = {          
+                                                     onButtonClick:function(arg0) {   
+                                                     return prompt('MyApp:'+JSON.stringify({obj:'jsInterface',func:'onButtonClick',args:[arg0]}));  
+                                                },  
+              
+                                                onImageClick:function(arg0,arg1,arg2) {   
+                                                 prompt('MyApp:'+JSON.stringify({obj:'jsInterface',func:'onImageClick',args:[arg0,arg1,arg2]}));  
+                                               },  
+                                             };  
+                                          }  
+                                        }  
+                                        )；
+										
+										 说明：
+
+										 1，上面代码中的jsInterface就是要注册的对象名，它注册了两个方法，onButtonClick(arg0)和onImageClick(arg0, arg1, arg2)，如果有返回值，就添加上return。
+
+										 2，prompt中是我们约定的字符串，它包含特定的标识符MyApp:，后面包含了一串JSON字符串，它包含了方法名，参数，对象名等。
+
+										 3，当JS调用onButtonClick或onImageClick时，就会回调到Java层中的onJsPrompt方法，我们再解析出方法名，参数，对象名，再反射调用方法。
+
+										 4，window.jsInterface这表示在window上声明了一个Js对象，声明方法的形式是：方法名:function(参数1，参数2) 
+				       
 				   
 			 18   Activity的启动模式：
 			 
@@ -4566,9 +4681,13 @@ public class Inter {
 
              3  LruCache 介绍
 
-               LruCache是个泛型类，主要算法原理是把最近使用的对象用强引用（即我们平常使用的对象引用方式）存储在 LinkedHashMap 中。当缓存满时，把最近最少使用的对象从内存中移除，并提供了get和put方法来完成缓存的获取和添加操作。
+                LruCache是个泛型类，主要算法原理是把最近使用的对象用强引用（即我们平常使用的对象引用方式）存储在 LinkedHashMap 中。
+			   
+			    当缓存满时，把最近最少使用的对象从内存中移除，并提供了get和put方法来完成缓存的获取和添加操作。
 
-               注意点：LinkedHashMap 是放到队尾			   
+                注意点：LinkedHashMap 是放到队尾		
+
+            				
 			
 		      
 			
@@ -4829,10 +4948,15 @@ public class Inter {
 						 
 						   
 					 
-				 3 进程的回收
+			    3   进程的回收
 
 
-                   Foreground process、Visible process、Service process、Background process、Empty process。				 
+                   Foreground process、Visible process、Service process、Background process、Empty process。	
+
+              
+                4	Android 如何保证跨进程通信的安全
+
+                    1）签名/分配uid/permission;				
 						
 			// 1   心跳机制的了解
 
