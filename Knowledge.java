@@ -5343,7 +5343,279 @@ public class Inter {
 			   
 			   退固定管线保平安。
 
+          8   Opengl es 中的Matrix  参考：http://www.learnopengles.com/tag/projection-matrix/
+		  
+		        I:  Some Basic Knowledge You Should Know:
+				
+				   1) Normalized device coordinates
+
+				       At the heart of things, OpenGL 2.0 doesn’t really know anything about your coordinate space or about the matrices that you’re using.
+
+				      OpenGL only requires that when all of your transformations are done, things should be in normalized device coordinates.
+
+                      These coordinates range from -1 to +1 on each axis, regardless of the shape or size of the actual screen. The bottom left corner will be at (-1, -1),
+
+				      and the top right corner will be at (1, 1). OpenGL will then map these coordinates onto the viewport that was configured with glViewport. 
+				   
+				      The underlying operating system’s window manager will then map that viewport to the appropriate place on the screen.
+					  
+				   2) Adjusting to the screen’s aspect ratio
+				   
+				      While OpenGL wants things to be in normalized device coordinates, it’s hard to work with these directly. 
+					  
+					  The first problem is that they always range from -1 to +1, so if you use these coordinates directly, 
+					  
+					  your image might be stretched when switching from portrait mode to landscape mode.
+
+                      The first thing you can do to get around this problem is to define an orthographic projection. Android has the orthoM method; 
+					  
+					  other platforms will have something similar. Let’s take a closer look at Android’s method:
+
+                          orthoM(float[] m, int mOffset, float left, float right, float bottom, float top, float near, float far)
+
+                      To define a simple matrix that adjusts things for the screen’s aspect ratio, we might call orthoM as follows:
+
+                         float aspectRatio = (float) width / (float) height;
+                         orthoM(projectionMatrix, 0, -aspectRatio, aspectRatio, -1, 1, -1, 1);
+
+                      Let’s say that the screen dimensions are 800×600. The call would proceed as follows:
+
+                       orthoM(projectionMatrix, 0, -1.333, 1.333, -1, 1, -1, 1);
+
+                      Although the screen is wider than it’s tall, we automatically adjust the coordinate space to match by mapping -(800/600) to the left side and (800/600) to the right side.
+
+                      This also works when we switch to portrait mode:
+
+                       orthoM(projectionMatrix, 0, -0.75, 0.75, -1, 1, -1, 1);
+					   
+				  3)  3D projections
+
+				      What about 3D projections? For those, we can use frustumM:
+
+                          frustumM(float[] m, int offset, float left, float right, float bottom, float top, float near, float far)
+
+                      We could define a simple 3D projection as follows:
+
+                      frustumM(projectionMatrix, 0, -aspectRatio, aspectRatio, -1, 1, 1, 100);
+
+                      The near & far range are handled differently: both have to be positive, and far has to be greater than near. We also have to 
+					  
+					  watch out for the Z axis: frustumM will actually invert it, so that the negative Z points into the distance!
+					  
+				  4)  The perspective divide
+
+				      The perspective projection doesn’t actually create the 3D effect; for that, we need to do something called the perspective divide. 
+					  
+					  Each coordinate in OpenGL actually has four components, X, Y, Z, and W. The projection matrix sets things up so that after multiplying 
+					  
+					  with the projection matrix, each coordinate’s W will increase the further away the object is. 
+					  
+					  OpenGL will then divide by w: X, Y, Z will be divided by W. The further away something is, 
+					  
+					  the more it will be pulled towards the center of the screen.  
+
+		       II：In OpenGL, we commonly use two additional matrices: the view and model matrices:
+			   
+			   
+			    1） THE MODEL MATRIX
+			   
+			       This matrix is used to move a model somewhere in the world. For example, let’s say we have a car model,
+
+				   and it’s defined such that it is centered around (0, 0, 0). We can place one car at (5, 5, 5) by 
+				   
+				   setting up a model matrix that translates everything by (5, 5, 5), and 
+				   
+				   drawing the car model with this matrix.
+				   
+				   
+			   2） THE VIEW MATRIX
+			   
+			       The view matrix is functionally equivalent to a camera. It does the same thing as a model matrix, 
+				   
+				   but it applies the same transformations equally to every object in the scene. Moving the whole world
+
+				   5 units towards us is the same as if we had walked 5 units forwards.
+				   
+				   
+			   3） Order of operations
+
+			       These matrices all have to be multiplied in a specific way, if we want our results to be correct.
+
+				   Let’s start with some basic definitions:
 
 
+				   vertexmodel
+
+				   This is an original vertex, as defined inside one of our object models.
+
+				   vertexworld
+
+				   This is a vertex in world coordinates. We get to here by using a model matrix to push the model out into the world.
+
+				   vertexeye
+
+				   This is a vertex in eye coordinates. We get here by using a view matrix to move the entire scene around.
+
+				   vertexclip
+
+				   This is a vertex in clip coordinates (also known as homogeneous coordinates): this is the coordinate space after projection, but before the perspective divide.
+
+				   vertexndc
+
+				   This is a vertex in normalized device coordinates, and this is what we end up with after the perspective divide.
+
+				   As we can see, getting to vertexndc is just a matter of applying each transformation in order. Let’s try to formulate this as an expression:
 
 
+				   vertexndc = PerspectiveDivide(ProjectionMatrix * vertexeye)
+
+				   vertexndc = PerspectiveDivide(ProjectionMatrix * ViewMatrix * vertexworld)
+
+				   vertexndc = PerspectiveDivide(ProjectionMatrix * ViewMatrix * ModelMatrix * vertexmodel)
+
+
+				   OpenGL takes care of the perspective division for us, so we don’t actually need to worry about that. All we need to 
+				   
+				   worry about is the order of operations; since matrix multiplication is non commutative, we’ll get a different result depending on the order.
+
+           9   Shader Language  参考：https://www.cnblogs.com/luweimy/p/4208570.html   
+		   
+		      
+			     1）数据类型 ：
+				 
+				    GLSL有三种基本数据类型：float，int和bool，以及由这些数据类型组成的数组和结构体。
+
+					需要注意的是，GLSL并不支持指针。与C/C++不同的是，GLSL将向量和矩阵作为基本数据类型。
+
+					注意：GLSL不存在数据类型的自动提升，类型必须严格保持一致。
+
+                      标量 
+					
+					    float int bool 
+					
+					  矢量
+
+					    矢量可以和标量甚至矩阵做加减乘除(必须符合规则) 
+
+                         vec2,  vec3,  vec4 // 包含2/3/4个浮点数的矢量
+
+						 ivec2, ivec3, ivec4 // 包含2/3/4个整数的矢量
+
+						 bvec2, bvec3, bvec4 // 包含2/3/4个布尔值的矢量
+
+						 声明：
+		  
+		                    vec3 v;             //声明三维浮点型向量v  
+
+							v[1]=3.0;           //给向量v的第二个元素赋值  
+
+
+							// 下面两种等价
+
+							vec3 v = vec3(0.6);
+
+							vec3 v = vec3(0.6, 0.6, 0.6);
+							
+					  矩阵
+
+					     mat2, mat3, mat4 -- 2x2/3x3/4x4/的矩阵
+
+						 矩阵是按列顺序组织的，先列后行
+
+                          例如：
+
+                          mat4 m;             //声明四维浮点型方阵m  
+                          m[2][3]=2.0;        //给方阵的第三列、第四行元素赋值 
+
+                          // 下面两种等价，初始化矩阵对角
+                          mat2 m = mat2(1.0)
+                          mat2 m = mat2(1.0, 0.0, 0.0, 1.0);
+						  
+						  
+					  取样器(Sampler)
+
+					     纹理查找需要制定哪个纹理或者纹理单元将制定查找。
+
+                          sampler1D           // 访问一个一维纹理
+                          sampler2D           // 访问一个二维纹理           
+                          sampler3D           // 访问一个三维纹理
+                          samplerCube         // 访问一个立方贴图纹理
+                          sampler1DShadow     // 访问一个带对比的一维深度纹理
+                          sampler2DShadow     // 访问一个带对比的二维深度纹理
+                          uniform sampler2D grass;
+
+                          vcc2 coord = vec2(100, 100);
+                          vec4 color = texture2D(grass, coord);
+                          如果一个着色器要在程序里结合多个纹理，可以使用取样器数组
+
+                          const int tex_nums = 4;
+                          uniform sampler2D textures[tex_nums];
+
+                          for(int i = 0; i < tex_nums; ++i) {
+                              sampler2D tex = textures[i];
+                            // todo ...
+                         }
+						 
+                     结构体：
+
+					      这是唯一的用户定义类型
+
+                          struct light{  
+                           vec3 position;  
+                           vec3 color;  
+                         };  light ceiling_light;
+
+					 数组：
+					  
+                        数组索引是从0开始的，而且没有指针概念
+
+                        // 创建一个10个元素的数组  
+                        vec4 points[10];  
+
+                       // 创建一个不指定大小的数组
+                        vec4 points[]; 
+                        points[2] = vec4(1.0);  // points现在大小为3
+                        points[7] = vec4(2.0);  // points现在大小为8
+						
+                     void
+
+					    只能用于声明函数返回值
+                 
+				2） 限定符
+				
+				      GLSL中有4个限定符（variable qualifiers）可供使用，它们限定了被标记的变量不能被更改的"范围"。 
+
+                      const  attribute uniform varying  
+					  
+					  const
+
+					    const和C++里差不多，定义不可变常量
+
+						表示限定的变量在编译时不可被修改
+
+
+					  attribute
+					  
+                        attribute是应用程序传给顶点着色器用的
+                        不允许声明时初始化
+
+						attribute限定符标记的是一种全局变量,该变量在顶点着色器中是只读（read-only）的，该变量被用作从OpenGL应用程序向
+						顶点着色器中传递参数，因此该限定符仅能用于顶点着色器。
+
+
+					  uniform
+					  
+                        unifrom一般是应用程序用于设定顶点着色器和片断着色器相关初始化值。
+
+						不允许声明时初始化
+                        uniform限定符标记的是一种全局变量,该变量对于一个图元（primitive）来说是不可更改的 它可以从OpenGL应用程序中接收传递来的参数。
+
+
+					  varying
+
+					    varying用于传递顶点着色器的值给片断着色器
+                        不允许声明时初始化
+                        它提供了从顶点着色器向片段着色器传递数据的方法，varying限定符可以在顶点着色器中定义变量，然后再传递给光栅化器，
+						光栅化器对数据插值后，再将每个片段的值交给片段着色器。 
+						
+						
