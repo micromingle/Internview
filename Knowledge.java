@@ -5617,5 +5617,56 @@ public class Inter {
                         不允许声明时初始化
                         它提供了从顶点着色器向片段着色器传递数据的方法，varying限定符可以在顶点着色器中定义变量，然后再传递给光栅化器，
 						光栅化器对数据插值后，再将每个片段的值交给片段着色器。 
-						
+		
+         10	  glDrawArrays  和 glDrawElements 区别
+		 
+		        For both, you pass OpenGL some buffers containing vertex data.
+
+                1） glDrawArrays is basically "draw this contiguous range of vertices, using the data I gave you earlier". 
+				  
+				  Good:
+
+                     You don't need to build an index buffer
+
+				  Bad:
+
+                    If you organise your data into GL_TRIANGLES, you will have duplicate vertex data for adjacent triangles. This is obviously wasteful.
+
+					If you use GL_TRIANGLE_STRIP and GL_TRIANGLE_FAN to try and avoid duplicating data: it isn't terribly effective and you'd have to make a rendering call
+
+					for each strip and fan. OpenGL calls are expensive and should be avoided where possible
+					
+
+			    2）  With glDrawElements, you pass in buffer containing the indices of the vertices you want to draw.
+       
+                  Good：
+
+                      No duplicate vertex data - you just index the same data for different triangles
+
+					  You can just use GL_TRIANGLES and rely on the vertex cache to avoid processing the same data twice - 
+					  
+					  no need to re-organise your geometry data or split rendering over multiple calls
+					  
+                   Bad：
+				   
+                     Memory overhead of index buffer
+                     
+				 3） My recommendation is to use glDrawElements
+				 
+		  11   Triangle Strip 和 Triangle Fan
+
+                 1） Triangle Strip
+				     
+					 For instance a Triangle Strip is a set of connected triangles which share vertices.
+
+                     Example of Triangle Strip
+
+					 Using Triangle Strip we will be able to get the following output, using those given vertices.	
+
+                 2） Triangle Fan
+
+                     Where a Triangle Fan is also a set of connected triangles, though all these triangles have a common vertex, 
+					 
+					 which is the central vertex. In OpenGL the central vertex is the first given vertex, in the Triangle Fan.				 
+		 
 						
