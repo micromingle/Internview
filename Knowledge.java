@@ -936,7 +936,221 @@ public class Inter {
 				  
 			// 20   NestedScrolling 机制
 			  
-				 
+			 28  LeakCanary 解析：参考：https://www.jianshu.com/p/5ee6b471970e
+
+			      1  核心原理
+				  
+				     1.1 WeakReference与ReferenceQueue：
+					      
+						  从watch函数中，可以看到，每次检测对象内存是否泄露时，我们都会生成一个KeyedReferenceQueue，这个类其实就是一个WeakReference，只不过其额外附带了一个key和一个name
+						  
+						  final class KeyedWeakReference extends WeakReference<Object> {
+                              public final String key;
+                              public final String name;
+
+                              KeyedWeakReference(Object referent, String key, String name,
+                                    ReferenceQueue<Object> referenceQueue) {
+                                    super(checkNotNull(referent, "referent"), checkNotNull(referenceQueue, "referenceQueue"));
+                                    this.key = checkNotNull(key, "key");
+                                    this.name = checkNotNull(name, "name");
+                                }
+                           }
+						   
+						   
+					      在构造时我们需要传入一个ReferenceQueue，这个ReferenceQueue是直接传入了WeakReference中，关于这个类，有兴趣的可以直接看Reference的源码。
+						 
+						  我们这里需要知道的是，每次WeakReference所指向的对象被GC后，这个弱引用都会被放入这个与之相关联的ReferenceQueue队列中。
+						  
+						  我们这里可以贴下其核心代码
+
+                           private static class ReferenceHandler extends Thread {
+
+                                   ReferenceHandler(ThreadGroup g, String name) {
+                                                  super(g, name);
+                                                }
+
+                                   public void run() {
+									   
+                                      for (;;) {
+										  
+                                          Reference<Object> r;
+                                          synchronized (lock) {
+                                          if (pending != null) {
+                                                r = pending;
+                                                pending = r.discovered;
+                                                r.discovered = null;
+                                           } else {
+                                             //....
+                                            try {
+                                               try {
+                                                   lock.wait();
+                                               } catch (OutOfMemoryError x) {
+												   }
+                                            } catch (InterruptedException x) { 
+											}
+                                        
+										     continue;
+                                           }
+
+                                     // Fast path for cleaners
+                                        if (r instanceof Cleaner) {
+                                            ((Cleaner)r).clean();
+                                            continue;
+                                         }
+
+                                         ReferenceQueue<Object> q = r.queue;
+                                         if (q != ReferenceQueue.NULL) q.enqueue(r);
+                                         }
+                                      }
+                                    }
+
+                         static {
+        
+		                     ThreadGroup tg = Thread.currentThread().getThreadGroup();
+                             for (ThreadGroup tgn = tg;
+                                  tgn != null;
+                                  tg = tgn, tgn = tg.getParent());
+                                  Thread handler = new ReferenceHandler(tg, "Reference Handler");
+                                 /* If there were a special system-only priority greater than
+                                    * MAX_PRIORITY, it would be used here
+                                  */
+                             handler.setPriority(Thread.MAX_PRIORITY);
+                             handler.setDaemon(true);
+                             handler.start();
+                         }
+
+                      在reference类加载的时候，java虚拟机会创建一个最大优先级的后台线程，这个线程的工作原理就是不断检测pending是否为null，如果不为null，
+					  就将其放入ReferenceQueue中，pending不为null的情况就是，引用所指向的对象已被GC，变为不可达。那么只要我们在构造弱引用的时候指定了ReferenceQueue，
+					  每当弱引用所指向的对象被内存回收的时候，我们就可以在queue中找到这个引用。
+					  
+					  重点（结合上面那个重点）： 如果我们期望一个对象被回收，那如果在接下来的预期时间之后，
+					  我们发现它依然没有出现在ReferenceQueue中，那就可以判定它的内存泄露了。LeakCanary检测内存泄露的核心原理就在这里。
+
+                  2   RefWatcher
+
+				      ReftWatcher是leakcancay检测内存泄露的发起点。使用方法为，在对象生命周期即将结束的时候，调用
+					  
+					     RefWatcher.watch(Object object)
+						 
+					  为了达到检测内存泄露的目的，RefWatcher需要：
+					  
+					    private final Executor watchExecutor;               执行内存泄露检测的executor
+                        private final DebuggerControl debuggerControl;      用于查询是否正在调试中，调试中不会执行内存泄露检测
+                        private final GcTrigger gcTrigger;                  用于在判断内存泄露之前，再给一次GC的机会
+                        private final HeapDumper heapDumper;                用于在产生内存泄露室执行dump 内存heap
+                        private final Set<String> retainedKeys;             持有那些待检测以及产生内存泄露的引用的key。 
+                        private final ReferenceQueue<Object> queue;         用于判断弱引用所持有的对象是否已被GC
+                        private final HeapDump.Listener heapdumpListener;   用于分析前面产生的dump文件，找到内存泄露的原因
+                        private final ExcludedRefs excludedRefs;            用于排除某些系统bug导致的内存泄露
+				  
+                      接下来，我们来看看watch函数背后是如何利用这些工具，生成内存泄露分析报告的。
+
+
+                        public void watch(Object watchedReference, String referenceName) {
+   
+                             checkNotNull(watchedReference, "watchedReference");
+                             checkNotNull(referenceName, "referenceName");
+                             //如果处于debug模式，则直接返回
+                           if (debuggerControl.isDebuggerAttached()) {
+                             return;
+                            }
+                            //记住开始观测的时间
+                            final long watchStartNanoTime = System.nanoTime();
+                           //生成一个随机的key，并加入set中
+                           String key = UUID.randomUUID().toString();
+                           retainedKeys.add(key);
+                           //生成一个KeyedWeakReference
+                           final KeyedWeakReference reference =
+                                 new KeyedWeakReference(watchedReference, key, referenceName, queue);
+                           //调用watchExecutor，执行内存泄露的检测
+                           watchExecutor.execute(new Runnable() {
+                                 @Override public void run() {
+                                     ensureGone(reference, watchStartNanoTime);
+                                   }
+                                });
+                            }
+
+				  
+                      所以最后的核心函数是在ensureGone这个runnable里面。要理解其工作原理，就得从keyedWeakReference说起（接以上核心原理）
+					  
+				  3   监测时机
+
+				      什么时候去检测能判定内存泄露呢？这个可以看AndroidWatchExecutor的实现
+					  
+					     public final class AndroidWatchExecutor implements Executor {
+
+                               private void executeDelayedAfterIdleUnsafe(final Runnable runnable) {
+                                    // This needs to be called from the main thread.
+                                   Looper.myQueue().addIdleHandler(new MessageQueue.IdleHandler() {
+                                            @Override public boolean queueIdle() {
+                                                   backgroundHandler.postDelayed(runnable, DELAY_MILLIS);
+                                        return false;
+                                        }
+                                    });
+                                }
+                            }
+
+                       这里又看到一个比较少的用法，IdleHandler，IdleHandler的原理就是在messageQueue因为空闲等待消息时给使用者一个hook。
+					   
+					   那AndroidWatchExecutor会在主线程空闲的时候，派发一个后台任务，这个后台任务会在DELAY_MILLIS时间之后执行。LeakCanary设置的是5秒。
+
+                  4   二次确认保证内存泄露准确性
+				  
+				       为了避免因为gc不及时带来的误判，leakcanay会进行二次确认进行保证。
+					   
+					    void ensureGone(KeyedWeakReference reference, long watchStartNanoTime) {
+    
+	                            long gcStartNanoTime = System.nanoTime();
+                                 //计算从调用watch到进行检测的时间段
+                                long watchDurationMs = NANOSECONDS.toMillis(gcStartNanoTime - watchStartNanoTime);
+                                //根据queue移除已被GC的对象的弱引用
+                                removeWeaklyReachableReferences();
+                                //如果内存已被回收或者处于debug模式，直接返回
+                                if (gone(reference) || debuggerControl.isDebuggerAttached()) {
+                                  return;
+                                }
+                                //如果内存依旧没被释放，则再给一次gc的机会
+                                gcTrigger.runGc();
+                                 //再次移除
+                                removeWeaklyReachableReferences();
+                                if (!gone(reference)) {
+                                    //走到这里，认为内存确实泄露了
+                                    long startDumpHeap = System.nanoTime();
+                                    long gcDurationMs = NANOSECONDS.toMillis(startDumpHeap - gcStartNanoTime);
+                                    //dump出heap报告
+                                    File heapDumpFile = heapDumper.dumpHeap();
+
+                                    if (heapDumpFile == HeapDumper.NO_DUMP) {
+                                        // Could not dump the heap, abort.
+                                        return;
+                                    }
+                                    long heapDumpDurationMs = NANOSECONDS.toMillis(System.nanoTime() - startDumpHeap);
+                                    heapdumpListener.analyze(
+                                       new HeapDump(heapDumpFile, reference.key, reference.name, excludedRefs, watchDurationMs,
+                                       gcDurationMs, heapDumpDurationMs));
+                                }
+                         }
+
+                        private boolean gone(KeyedWeakReference reference) {
+                            return !retainedKeys.contains(reference.key);
+                        }
+
+                         private void removeWeaklyReachableReferences() {
+                             // WeakReferences are enqueued as soon as the object to which they point to becomes weakly
+                             // reachable. This is before finalization or garbage collection has actually happened.
+                             KeyedWeakReference ref;
+                                 while ((ref = (KeyedWeakReference) queue.poll()) != null) {
+                                         retainedKeys.remove(ref.key);
+                                    }
+                                }
+
+                        }
+						
+				  5   延伸 ReferenceQueue  参考： http://hongjiang.info/java-referencequeue/：
+				  
+				      重点：当一个对象的可达状态发生改变的时候，会被GC添加到ReferenceQueue
+					   
+					  
 		     
 			 三 多线程类
 			 
@@ -993,7 +1207,7 @@ public class Inter {
 
                       公平锁比较慢  
 
-               3   线程池
+              3   线程池
 
 					 假设一个服务器完成一项任务所需时间为：T1 创建线程时间，T2 在线程中执行任务的时间，
 					 T3 销毁线程时间。如果：T1 + T3 远大于 T2，则可以采用线程池，以提高服务器性能。
